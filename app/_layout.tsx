@@ -1,24 +1,45 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+// app/_layout.tsx
+import { AppProvider, useApp } from '@/app/lib/AppContext';
+import { Redirect, Stack } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutNav() {
+  const { user, loading } = useApp();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="profile" options={{ presentation: 'modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+
+      {loading && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'white',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActivityIndicator size="large" color="#184B44" />
+        </View>
+      )}
+
+      {!loading && !user && <Redirect href="/profile" />}
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppProvider>
+      <RootLayoutNav />
+    </AppProvider>
   );
 }

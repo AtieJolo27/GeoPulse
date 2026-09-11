@@ -1,35 +1,70 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from "expo-router";
+import "../global.css";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function RootLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
+    <Tabs screenOptions={{
+      headerShown: false,
+      animation: 'fade',
+      tabBarStyle: {
+        backgroundColor: '#1B5E37',
+        borderRadius: 22,
+        height: 68,
+        marginHorizontal: 14,
+        marginBottom: 18,
+        paddingBottom: 7,
+        paddingTop: 7,
+        shadowColor: '#123E26',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 10,
+        borderTopWidth: 0,
+      },
+      tabBarActiveTintColor: '#FFFFFF',
+      tabBarInactiveTintColor: 'rgba(255,255,255,0.62)',
+      tabBarLabelStyle: {
+        fontSize: 11,
+        fontWeight: '700',
+      },
+     }}>
+      <Tabs.Screen name='home'
+      options={{
+        title: "Home",
+        tabBarIcon: ({color, size, focused}) =>
+          <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
+      }}
       />
-      <Tabs.Screen
-        name="explore"
+      <Tabs.Screen name="crop"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Crops",
+        tabBarIcon: ({color, size, focused}) =>
+            <Ionicons name={focused ? 'leaf' : 'leaf-outline'} color={color} size={size} />
         }}
-      />
+        />
+      <Tabs.Screen name="fertilizer"
+        options={{
+          title: "Fertilizers",
+        tabBarIcon: ({color, size, focused}) =>
+            <Ionicons name={focused ? 'nutrition' : 'nutrition-outline'} color={color} size={size} />
+        }}
+        />
+      <Tabs.Screen name="irrigation"
+        options={{
+          title: "Irrigation",
+        tabBarIcon: ({color, size, focused}) =>
+            <Ionicons name={focused ? 'water' : 'water-outline'} color={color} size={size} />
+        }}
+        />
+      <Tabs.Screen name="history"
+        options={{
+          title: "History",
+        tabBarIcon: ({color, size, focused}) =>
+            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} />
+        }}
+        />
+
     </Tabs>
   );
 }
