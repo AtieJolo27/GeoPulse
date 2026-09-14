@@ -15,7 +15,7 @@ export default function HistoryLayout() {
         headerRight: () => <HeaderActions />,
       }}
     >
-      <Stack.Screen name="histories" options={{ title: 'Field History' }} />
+      <Stack.Screen name="index" options={{ title: 'Field History' }} />
     </Stack>
   );
 }

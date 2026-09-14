@@ -1,6 +1,6 @@
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import React, { useEffect, useRef } from 'react';
-import { Animated, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 interface LoadingSkeletonProps {
   width?: number | string;
@@ -44,7 +44,7 @@ export function LoadingSkeleton({
           width: width as any,
           height,
           borderRadius,
-          backgroundColor: colors.isDarkMode ? '#1A3522' : '#DCFCE7',
+          backgroundColor: colors.isDarkMode ? '#1A3522' : '#E9EEEA',
           opacity,
         },
         style,

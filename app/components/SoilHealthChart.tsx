@@ -1,11 +1,11 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import { computeOverallScore } from '@/lib/soilHealthScore';
+import { useApp } from '@/app/lib/AppContext';
+import { useThemeColors } from '@/app/lib/useThemeColors';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Rect, Svg, Text as SvgText } from 'react-native-svg';
+import { Svg, Rect, Text as SvgText } from 'react-native-svg';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -102,14 +102,14 @@ export default function SoilHealthChart() {
         <Text style={{ fontWeight: 'bold', fontSize: fs(18), color: colors.text }}>
           {t('Soil Health Score', 'Iskor ng Kalusugan ng Lupa')}
         </Text>
-        <View className="flex-row items-center" style={{ backgroundColor: colors.cardBgAlt, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+        <View className="flex-row items-center" style={{ backgroundColor: colors.cardBgAlt, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
           <View className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: getHealthColor(latestScore) }} />
           <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: getHealthColor(latestScore) }}>
             {latestScore}% - {t(getHealthLabel(latestScore), getHealthLabel(latestScore))}
           </Text>
         </View>
       </View>
-      <View className="flex-row justify-center mb-3 flex-wrap" style={{ backgroundColor: colors.cardBgAlt, borderRadius: 12, padding: 8 }}>
+      <View className="flex-row justify-center mb-3 flex-wrap" style={{ backgroundColor: colors.cardBgAlt, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: 8 }}>
         <View className="flex-row items-center mr-3 mb-1">
           <View className="w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: '#16A34A' }} />
           <Text style={{ fontSize: fs(11), color: colors.subText }}>{t('Excellent', 'Napakahusay')} (80+)</Text>

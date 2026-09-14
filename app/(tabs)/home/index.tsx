@@ -1,4 +1,5 @@
 import { DashboardSkeleton } from '@/app/components/LoadingSkeleton';
+import SensorWifiScreen from '@/app/components/SensorWifiScreen';
 import { SectionHeader } from '@/app/components/ui/SectionHeader';
 import { StatusBadge } from '@/app/components/ui/StatusBadge';
 import { useApp } from '@/app/lib/AppContext';
@@ -7,20 +8,20 @@ import { computeSoilHealthScore } from '@/lib/soilHealthScore';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Alert,
-    Modal,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import * as Progress from 'react-native-progress';
 import { CACHE_KEYS, getCache, setCache } from '../../../lib/cache';
-import { exportSensorReadingsPdf } from '../../../lib/exportSensorReadins';
+import { exportSensorReadingsPdf } from '../../../lib/exportSensorReadings';
 import { lightHaptic, mediumHaptic, warningHaptic } from '../../../lib/haptics';
 import { supabase } from '../../../lib/supabaseClient';
 import Urgent_Card from '../../components/UrgentCard';
@@ -213,7 +214,20 @@ export default function index() {
   const [newZoneNameEn, setNewZoneNameEn] = useState('');
   const [newZoneNameTl, setNewZoneNameTl] = useState('');
   const [addZoneModalVisible, setAddZoneModalVisible] = useState(false);
+  const [selectedSoilType, setSelectedSoilType] = useState<string | null>(null);
+  const [savingZone, setSavingZone] = useState(false);
+
+  const SOIL_TYPES = [
+    'Clay',
+    'Clay Loam',
+    'Loam',
+    'Sandy',
+    'Sandy Loam',
+    'Silty Clay Loam',
+    'Volcanic Loam',
+  ];
   const [isExporting, setIsExporting] = useState(false);
+  const [wifiModalVisible, setWifiModalVisible] = useState(false);
 
   const generateNewZoneKey = useCallback((): string => {
     const len = zones.length;
@@ -427,6 +441,22 @@ export default function index() {
             accessibilityLabel={t('Add zone', 'Magdagdag na zona')}
           >
             <Ionicons name="add" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              lightHaptic();
+              setWifiModalVisible(true);
+            }}
+            className="border rounded-2xl h-13 p-4"
+            style={{
+              width: 80,
+              backgroundColor: colors.cardBgAlt,
+              borderColor: colors.border,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t('Sensor Wi-Fi', 'Wi-Fi ng Sensor')}
+          >
+            <Ionicons name="wifi-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </ScrollView>
 
@@ -843,28 +873,129 @@ export default function index() {
               />
             </View>
 
+            <View className="mt-4">
+              <Text style={{ color: colors.subText, fontSize: 14 }}>
+                {t('Soil Type', 'Uri ng Lupa')}
+              </Text>
+              <Text style={{ color: colors.mutedText, fontSize: 12, marginTop: 2, marginBottom: 8 }}>
+                {t(
+                  'Crop and fertilizer suggestions will only consider crops suited to this soil type.',
+                  'Ang mga irerekomendang pananim at pataba ay sasaklaw lang sa mga akma sa uri ng lupang ito.'
+                )}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {SOIL_TYPES.map((soilType) => (
+                  <TouchableOpacity
+                    key={soilType}
+                    onPress={() => {
+                      lightHaptic();
+                      setSelectedSoilType(soilType);
+                    }}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: selectedSoilType === soilType ? colors.primary : colors.border,
+                      backgroundColor: selectedSoilType === soilType ? colors.primary : colors.cardBgAlt,
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={soilType}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: selectedSoilType === soilType ? 'white' : colors.text,
+                      }}
+                    >
+                      {soilType}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <TouchableOpacity
-              onPress={() => {
-                if (newZoneNameEn.trim() === '' || newZoneNameTl.trim() === '') {
+              onPress={async () => {
+                if (
+                  newZoneNameEn.trim() === '' ||
+                  newZoneNameTl.trim() === '' ||
+                  !selectedSoilType
+                ) {
                   warningHaptic();
                   return;
                 }
+
                 mediumHaptic();
+                setSavingZone(true);
+
+                try {
+                  await fetch('https://capstone-eem0.onrender.com/device/soil-type', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ soil_type: selectedSoilType }),
+                  });
+                } catch (err) {
+                  console.warn('Failed to save soil type to backend:', err);
+                }
+
                 const newKey = generateNewZoneKey();
                 setZones(prev => [...prev, { key: newKey, labelEn: newZoneNameEn.trim(), labelTl: newZoneNameTl.trim() }]);
                 setSelectedZone(newKey);
                 setNewZoneNameEn('');
                 setNewZoneNameTl('');
+                setSelectedSoilType(null);
+                setSavingZone(false);
                 setAddZoneModalVisible(false);
               }}
+              disabled={savingZone}
               className="mt-6 rounded-xl py-3 px-8"
-              style={{ backgroundColor: colors.primary }}
+              style={{ backgroundColor: colors.primary, opacity: savingZone ? 0.6 : 1 }}
             >
-              <Text className="font-bold" style={{ color: '#F0FDF4' }}>
-                {t('Save', 'I-save')}
+              <Text className="font-bold text-center" style={{ color: '#F0FDF4' }}>
+                {savingZone ? t('Saving...', 'Sine-save...') : t('Save', 'I-save')}
               </Text>
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+
+      {/* Sensor Wi-Fi Modal */}
+      <Modal
+        visible={wifiModalVisible}
+        animationType="slide"
+        onRequestClose={() => setWifiModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.bg }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingTop: 50,
+              paddingBottom: 12,
+              backgroundColor: '#1B5E37',
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'white' }}>
+              {t('Sensor Wi-Fi', 'Wi-Fi ng Sensor')}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                mediumHaptic();
+                setWifiModalVisible(false);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('Close', 'Isara')}
+            >
+              <Ionicons name="close-circle" size={28} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          <SensorWifiScreen />
         </View>
       </Modal>
     </ScrollView>

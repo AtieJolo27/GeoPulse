@@ -1,6 +1,6 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useThemeColors } from '@/app/lib/useThemeColors';
 
 export function SectionHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   const colors = useThemeColors();

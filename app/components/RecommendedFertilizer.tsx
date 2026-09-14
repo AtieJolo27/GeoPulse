@@ -1,6 +1,6 @@
-import { getFertilizerImage } from '@/app/lib/cropImages';
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { getFertilizerImage } from '@/app/lib/cropImages';
 import { Link } from 'expo-router';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
@@ -36,7 +36,7 @@ export default function RecommendedFertilizer({ fertilizer_name, percentage, fon
         >
             <TouchableOpacity
                 activeOpacity={0.7}
-                className="flex-row items-center rounded-2xl p-3 m-1"
+                className="mb-3 flex-row items-center rounded-2xl p-4"
                 style={{ 
                     backgroundColor: colors.cardBg, 
                     borderColor: colors.cardBorder, 
@@ -50,8 +50,9 @@ export default function RecommendedFertilizer({ fertilizer_name, percentage, fon
             >
                 <View className="mr-3">
                     <Image
-                         source={imageUrl}
-                         style={{ width: 48, height: 48, borderRadius: 24 }}
+                        source={imageUrl}
+                        className="w-11 h-11 rounded-full"
+                        style={{ width: 44, height: 44, borderRadius: 22 }}
                     />
                     <View
                         className="absolute -bottom-1 -right-1 items-center justify-center rounded-full border-2 border-white"
@@ -62,13 +63,11 @@ export default function RecommendedFertilizer({ fertilizer_name, percentage, fon
                 </View>
 
                 <View className="flex-1">
-                    <View className="flex-row items-center justify-between">
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(16), textTransform: 'capitalize', color: colors.text }}>
+                    <View className="flex-row items-start">
+                        <Text className="flex-1 mr-2" numberOfLines={2} style={{ fontWeight: 'bold', fontSize: fs(16), lineHeight: fs(20), textTransform: 'capitalize', color: colors.text }}>
                             {fertilizer_name}
                         </Text>
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: status.color }}>
-                            {percentage}%
-                        </Text>
+                        <View className="rounded-full px-2 py-1" style={{ backgroundColor: status.bg }}><Text style={{ fontWeight: '800', fontSize: fs(13), color: status.color }}>{percentage}%</Text></View>
                     </View>
 
                     <View className="mt-2">

@@ -1,11 +1,8 @@
 // app/_layout.tsx
-import { enableScreens } from 'react-native-screens';
-
 import { AppProvider, useApp } from '@/app/lib/AppContext';
 import { Redirect, Stack } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-enableScreens(false);
 
 function RootLayoutNav() {
   const { user, loading } = useApp();

@@ -1,6 +1,6 @@
-import { getFertilizerImage } from '@/app/lib/cropImages';
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { getFertilizerImage } from '@/app/lib/cropImages';
 import { Link } from 'expo-router';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
@@ -36,22 +36,23 @@ export default function BestFertilizer({ fertilizer_name, percentage, fontScale 
         >
             <TouchableOpacity
                 activeOpacity={0.7}
-                className="flex-row items-center rounded-2xl p-3 m-1"
+                className="rounded-3xl p-5"
                 style={{ 
                     backgroundColor: colors.sensorCardBg, 
                     borderColor: colors.sensorCardBorder, 
                     borderWidth: 1,
-                    shadowColor: colors.primary,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
+                    shadowColor: '#183322',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.08,
+                    shadowRadius: 10,
                     elevation: 3,
                 }}
             >
-                <View className="mr-3">
+                <View className="flex-row items-center"><View className="mr-4">
                     <Image
-                         source={imageUrl}
-                         style={{ width: 48, height: 48, borderRadius: 24 }}
+                        source={imageUrl}
+                        className="w-12 h-12 rounded-full"
+                        style={{ width: 48, height: 48, borderRadius: 24 }}
                     />
                     <View
                         className="absolute -bottom-1 -right-1 items-center justify-center rounded-full border-2 border-white"
@@ -62,17 +63,16 @@ export default function BestFertilizer({ fertilizer_name, percentage, fontScale 
                 </View>
 
                 <View className="flex-1">
-                    <Text style={{ fontSize: fs(11), textTransform: 'uppercase', letterSpacing: 1, color: colors.greenText }}>
-                        Best fertilizer for your field
+                    <Text style={{ fontSize: fs(12), textTransform: 'uppercase', letterSpacing: 0.8, color: colors.greenText, fontWeight: '700' }}>
+                        Recommended fertilizer
                     </Text>
 
-                    <View className="flex-row items-center justify-between mt-0.5">
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(16), textTransform: 'capitalize', color: colors.text }}>
+                    <Text numberOfLines={2} style={{ fontWeight: '800', fontSize: fs(22), lineHeight: fs(27), textTransform: 'capitalize', color: colors.text }}>
                             {fertilizer_name}
-                        </Text>
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: status.color }}>
-                            {percentage}%
-                        </Text>
+                    </Text>
+                    <View className="mt-2 flex-row items-center justify-between">
+                        <Text style={{ fontSize: fs(12), color: colors.subText }}>Match score</Text>
+                        <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: status.bg }}><Text style={{ fontWeight: '800', fontSize: fs(14), color: status.color }}>{percentage}%</Text></View>
                     </View>
 
                     <View className="mt-2">
@@ -86,6 +86,13 @@ export default function BestFertilizer({ fertilizer_name, percentage, fontScale 
                             borderRadius={3}
                         />
                     </View>
+                </View></View>
+                <Text className="mt-4" style={{ fontSize: fs(13), lineHeight: 19, color: colors.subText }}>
+                    Recommended based on your current soil nutrients.
+                </Text>
+                <View className="mt-4 flex-row items-center self-start rounded-xl px-3 py-2" style={{ backgroundColor: colors.cardBgAlt }}>
+                    <Ionicons name="bulb-outline" size={16} color={colors.primaryDark} />
+                    <Text className="ml-2 font-bold" style={{ fontSize: fs(13), color: colors.primaryDark }}>Why is this recommended?</Text>
                 </View>
             </TouchableOpacity>
         </Link>

@@ -15,7 +15,7 @@ export default function IrrigationLayout() {
       headerRight: () => <HeaderActions />
         }}>
             <Stack.Screen
-            name='irrigations'
+            name='index'
             />
         </Stack>
     );

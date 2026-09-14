@@ -1,7 +1,7 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useThemeColors } from '@/app/lib/useThemeColors';
 import { StatusBadge, StatusTone } from './StatusBadge';
 
 export function MetricCard({ icon, label, value, status, tone = 'neutral' }: {

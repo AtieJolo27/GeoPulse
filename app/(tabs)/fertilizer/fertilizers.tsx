@@ -1,12 +1,12 @@
 import BestFertilizer from '@/app/components/BestFertilizer';
-import RecommendedFertilizer from '@/app/components/RecommendedFertilizers';
+import RecommendedFertilizer from '@/app/components/RecommendedFertilizer';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
-import { CACHE_KEYS, getCache, setCache } from '../../../lib/cache';
 import { supabase } from '../../../lib/supabaseClient';
+import { setCache, getCache, CACHE_KEYS } from '../../../lib/cache';
 
 interface FertilizerRecommendation {
   fertilizer: string;

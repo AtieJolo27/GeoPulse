@@ -78,7 +78,7 @@ export function getFieldWeatherAlert(reading: FarmReading | null): FarmAlert {
 }
 
 export function getNutrientTrends(readings: FarmReading[]): NutrientTrend[] {
-  const metrics: Pick<NutrientTrend, 'key' | 'label' | 'labelTl'>[] = [
+  const metrics: Array<Pick<NutrientTrend, 'key' | 'label' | 'labelTl'>> = [
     { key: 'nitrogen', label: 'Nitrogen', labelTl: 'Nitrogen' },
     { key: 'phosphorus', label: 'Phosphorus', labelTl: 'Phosphorus' },
     { key: 'potassium', label: 'Potassium', labelTl: 'Potassium' },

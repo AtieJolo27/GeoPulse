@@ -1,7 +1,7 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity } from 'react-native';
+import { useThemeColors } from '@/app/lib/useThemeColors';
 
 export function PrimaryButton({ label, onPress, icon, disabled = false }: {
   label: string; onPress: () => void; icon?: React.ComponentProps<typeof Ionicons>['name']; disabled?: boolean;

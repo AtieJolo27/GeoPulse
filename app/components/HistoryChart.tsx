@@ -1,10 +1,10 @@
+import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
-import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
-import { Rect, Svg, Text as SvgText } from 'react-native-svg';
+import { Svg, Rect, Text as SvgText } from 'react-native-svg';
 
 type Metric = {
   key: keyof SoilHistoryRow;
@@ -113,7 +113,7 @@ export default function NutrientHistoryChart() {
             }}
             className="mr-2 px-3 py-1.5 rounded-full"
             style={{
-              backgroundColor: selected.key === metric.key ? metric.color : (colors.isDarkMode ? '#1A3522' : '#DCFCE7'),
+              backgroundColor: selected.key === metric.key ? metric.color : colors.cardBgAlt,
             }}
           >
             <Text

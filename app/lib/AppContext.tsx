@@ -1,10 +1,19 @@
+import { supabase } from '@/lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 type Language = 'english' | 'tagalog';
 type FontSize = 'small' | 'medium' | 'large';
+
+interface Zone {
+  id: number;
+  name_en: string;
+  name_tl: string;
+  soil_type: string;
+}
+
+const API_BASE_URL = 'https://capstone-eem0.onrender.com';
 
 interface AppContextType {
   theme: Theme;
@@ -20,6 +29,13 @@ interface AppContextType {
   fontSize: FontSize;
   setFontSize: (size: FontSize) => void;
   fontScale: number;
+
+  zones: Zone[];
+  zonesLoading: boolean;
+  activeZoneId: number | null;
+  setActiveZoneId: (zoneId: number) => Promise<void>;
+  createZone: (nameEn: string, nameTl: string, soilType: string) => Promise<Zone | null>;
+  refreshZones: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType>({
@@ -36,6 +52,13 @@ const AppContext = createContext<AppContextType>({
   fontSize: 'medium',
   setFontSize: () => { },
   fontScale: 1,
+
+  zones: [],
+  zonesLoading: true,
+  activeZoneId: null,
+  setActiveZoneId: async () => { },
+  createZone: async () => null,
+  refreshZones: async () => { },
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -45,6 +68,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Start as true — we don't know auth state until getSession() resolves.
   const [loading, setLoading] = useState<boolean>(true);
   const [fontSize, setFontSizeState] = useState<FontSize>('medium');
+
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [zonesLoading, setZonesLoading] = useState<boolean>(true);
+  const [activeZoneId, setActiveZoneIdState] = useState<number | null>(null);
 
   const isDarkMode = theme === 'dark';
 
@@ -99,6 +126,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // =========================================================
+  // ZONES
+  // =========================================================
+
+  const refreshZones = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/zones`);
+      const json = await res.json();
+      setZones(json.data ?? []);
+    } catch (err) {
+      console.warn('Failed to fetch zones:', err);
+    } finally {
+      setZonesLoading(false);
+    }
+  }, []);
+
+  const fetchActiveZone = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/device/active-zone`);
+      const json = await res.json();
+      if (json.zone) {
+        setActiveZoneIdState(json.zone.id);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch active zone:', err);
+    }
+  }, []);
+
+  const setActiveZoneId = useCallback(async (zoneId: number) => {
+    // Update local state immediately so the UI feels instant,
+    // then sync to the backend so the ESP32's next reading gets
+    // tagged with this zone too.
+    setActiveZoneIdState(zoneId);
+
+    try {
+      await fetch(`${API_BASE_URL}/device/active-zone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zone_id: zoneId }),
+      });
+    } catch (err) {
+      console.warn('Failed to set active zone on backend:', err);
+    }
+  }, []);
+
+  const createZone = useCallback(async (nameEn: string, nameTl: string, soilType: string): Promise<Zone | null> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/zones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name_en: nameEn,
+          name_tl: nameTl,
+          soil_type: soilType,
+        }),
+      });
+      const json = await res.json();
+
+      if (json.status === 'success' && json.zone) {
+        const newZone: Zone = json.zone;
+        setZones((prev) => [...prev, newZone]);
+        return newZone;
+      }
+
+      console.warn('Zone creation failed:', json.message);
+      return null;
+    } catch (err) {
+      console.warn('Failed to create zone:', err);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshZones();
+    fetchActiveZone();
+  }, [refreshZones, fetchActiveZone]);
+
   // Listen for auth changes + get initial session
   useEffect(() => {
     let isMounted = true;
@@ -136,7 +240,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         loading,
-        fontSize, setFontSize, fontScale
+        fontSize, setFontSize, fontScale,
+
+        zones,
+        zonesLoading,
+        activeZoneId,
+        setActiveZoneId,
+        createZone,
+        refreshZones,
       }}
     >
       {children}
@@ -148,5 +259,4 @@ export function useApp() {
   return useContext(AppContext);
 }
 
-export type { FontSize };
-
+export type { FontSize, Zone };

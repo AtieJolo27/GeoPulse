@@ -1,6 +1,6 @@
-import { getCropImage } from '@/app/lib/cropImages';
-import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { getCropImage } from '@/app/lib/cropImages';
 import { Link } from 'expo-router';
 import React from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
@@ -36,12 +36,14 @@ export default function BestCrop({ crop_name, percentage, fontScale = 1 }: BestC
         >
             <TouchableOpacity
                 activeOpacity={0.7}
-                className="flex-row items-center rounded-2xl p-3 m-1"
-                style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, borderWidth: 1, shadowColor: '#0D5E33', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}
+                className="rounded-3xl p-5"
+                style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder, borderWidth: 1, shadowColor: '#183322', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 }}
             >
-                <View className="mr-3">
+                <View className="flex-row items-center">
+                <View className="mr-4">
                     <Image
                         source={imageUrl}
+                        className="w-12 h-12 rounded-full"
                         style={{ width: 48, height: 48, borderRadius: 24 }}
                     />
                     <View
@@ -53,17 +55,16 @@ export default function BestCrop({ crop_name, percentage, fontScale = 1 }: BestC
                 </View>
 
                 <View className="flex-1">
-                    <Text style={{ fontSize: fs(11), color: colors.greenText, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        Best crop for your field
+                    <Text style={{ fontSize: fs(12), color: colors.greenText, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: '700' }}>
+                        Recommended for your soil
                     </Text>
 
-                    <View className="flex-row items-center justify-between mt-0.5">
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(16), color: colors.text, textTransform: 'capitalize' }}>
+                    <Text numberOfLines={2} style={{ fontWeight: '800', fontSize: fs(22), lineHeight: fs(27), color: colors.text, textTransform: 'capitalize' }}>
                             {crop_name}
-                        </Text>
-                        <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: status.color }}>
-                            {percentage}%
-                        </Text>
+                    </Text>
+                    <View className="mt-2 flex-row items-center justify-between">
+                        <Text style={{ fontSize: fs(12), color: colors.subText }}>Match score</Text>
+                        <View className="rounded-full px-2.5 py-1" style={{ backgroundColor: status.bg }}><Text style={{ fontWeight: '800', fontSize: fs(14), color: status.color }}>{percentage}%</Text></View>
                     </View>
 
                     <View className="mt-2">
@@ -76,6 +77,13 @@ export default function BestCrop({ crop_name, percentage, fontScale = 1 }: BestC
                             width={null}
                         />
                     </View>
+                </View></View>
+                <Text className="mt-4" style={{ fontSize: fs(13), lineHeight: 19, color: colors.subText }}>
+                    Your current soil conditions are suitable for {crop_name}.
+                </Text>
+                <View className="mt-4 flex-row items-center self-start rounded-xl px-3 py-2" style={{ backgroundColor: colors.cardBgAlt }}>
+                    <Ionicons name="bulb-outline" size={16} color={colors.primaryDark} />
+                    <Text className="ml-2 font-bold" style={{ fontSize: fs(13), color: colors.primaryDark }}>Why is this recommended?</Text>
                 </View>
             </TouchableOpacity>
         </Link>
