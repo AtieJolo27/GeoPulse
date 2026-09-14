@@ -1,5 +1,4 @@
 import { DashboardSkeleton } from '@/app/components/LoadingSkeleton';
-import SensorWifiScreen from '@/app/components/SensorWifiScreen';
 import { SectionHeader } from '@/app/components/ui/SectionHeader';
 import { StatusBadge } from '@/app/components/ui/StatusBadge';
 import { useApp } from '@/app/lib/AppContext';
@@ -227,7 +226,7 @@ export default function index() {
     'Volcanic Loam',
   ];
   const [isExporting, setIsExporting] = useState(false);
-  const [wifiModalVisible, setWifiModalVisible] = useState(false);
+  
 
   const generateNewZoneKey = useCallback((): string => {
     const len = zones.length;
@@ -392,7 +391,7 @@ export default function index() {
         {/* Zone selector */}
         <View className="mt-4">
           <Text style={{ fontSize: fs(12), fontWeight: '800', letterSpacing: 0.9, color: colors.subText }}>
-            {t('FIELD ZONES', 'SONA NG LARANGAN')}
+            {t('FIELD ZONES', 'SONA NG LUPA')}
           </Text>
         </View>
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
@@ -431,7 +430,7 @@ export default function index() {
               setNewZoneNameTl('');
               setAddZoneModalVisible(true);
             }}
-            className="border rounded-2xl h-13 p-4"
+            className="border rounded-2xl h-13 p-7 center"
             style={{
               width: 80,
               backgroundColor: colors.cardBgAlt,
@@ -442,22 +441,7 @@ export default function index() {
           >
             <Ionicons name="add" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              lightHaptic();
-              setWifiModalVisible(true);
-            }}
-            className="border rounded-2xl h-13 p-4"
-            style={{
-              width: 80,
-              backgroundColor: colors.cardBgAlt,
-              borderColor: colors.border,
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={t('Sensor Wi-Fi', 'Wi-Fi ng Sensor')}
-          >
-            <Ionicons name="wifi-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
+          
         </ScrollView>
 
         <View className="my-2">
@@ -693,6 +677,7 @@ export default function index() {
           ))
         )}
       </View>}
+      
 
       {/* Soil Health Detail Modal */}
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -959,45 +944,7 @@ export default function index() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
-
-
-      {/* Sensor Wi-Fi Modal */}
-      <Modal
-        visible={wifiModalVisible}
-        animationType="slide"
-        onRequestClose={() => setWifiModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: colors.bg }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingHorizontal: 20,
-              paddingTop: 50,
-              paddingBottom: 12,
-              backgroundColor: '#1B5E37',
-            }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'white' }}>
-              {t('Sensor Wi-Fi', 'Wi-Fi ng Sensor')}
-            </Text>
-            <TouchableOpacity
-              onPress={() => {
-                mediumHaptic();
-                setWifiModalVisible(false);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={t('Close', 'Isara')}
-            >
-              <Ionicons name="close-circle" size={28} color="white" />
-            </TouchableOpacity>
-          </View>
-
-          <SensorWifiScreen />
-        </View>
-      </Modal>
+      </Modal>  
     </ScrollView>
   );
 }

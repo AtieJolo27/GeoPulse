@@ -32,16 +32,16 @@
 
 import { useCallback, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Linking,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const AP_MODE_IP = "192.168.4.1"; // Fixed IP of the sensor's own provisioning AP
@@ -300,34 +300,46 @@ export default function SensorWifiScreen() {
         autoCapitalize="none"
         keyboardType="numbers-and-punctuation"
       />
+      <View className="flex flex-row items-center justify-around gap-3">
+  <TouchableOpacity
+    style={styles.button}
+    onPress={checkStatus}
+    disabled={loadingStatus}
+  >
+    {loadingStatus ? (
+      <ActivityIndicator color="#fff" />
+    ) : (
+      <Text style={styles.buttonText}>I-check ang Status</Text>
+    )}
+  </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={checkStatus} disabled={loadingStatus}>
-        {loadingStatus ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>I-check ang Status</Text>
-        )}
-      </TouchableOpacity>
-
-      {status && (
-        <View style={styles.statusBox}>
-          {status.connected ? (
-            <>
-              <Text style={styles.statusLine}>
-                \u2705 Nakakonekta sa: <Text style={{ fontWeight: "700" }}>{status.ssid}</Text>
-              </Text>
-              <Text style={styles.statusLine}>IP: {status.ip}</Text>
-            </>
-          ) : (
-            <Text style={styles.statusLine}>\u26A0\uFE0F Hindi kumonekta ang sensor sa Wi-Fi.</Text>
-          )}
-        </View>
+  {status && (
+    <View style={styles.statusBox}>
+      {status.connected ? (
+        <>
+          <Text style={styles.statusLine}>
+            ✅ Nakakonekta sa:{" "}
+            <Text style={{ fontWeight: "700" }}>{status.ssid}</Text>
+          </Text>
+          <Text style={styles.statusLine}>IP: {status.ip}</Text>
+        </>
+      ) : (
+        <Text style={styles.statusLine}>
+          ⚠️ Hindi kumonekta ang sensor sa Wi-Fi.
+        </Text>
       )}
-
-      <TouchableOpacity style={styles.buttonDanger} onPress={resetWifi}>
-        <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>
-      </TouchableOpacity>
     </View>
+  )}
+
+  <TouchableOpacity
+    style={styles.buttonDanger}
+    onPress={resetWifi}
+  >
+    <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>
+  </TouchableOpacity>
+</View>
+    </View>
+
   );
 }
 
@@ -365,7 +377,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 14,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 4,
   },
   buttonText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   statusBox: {
