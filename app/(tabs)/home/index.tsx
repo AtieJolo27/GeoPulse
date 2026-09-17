@@ -56,12 +56,6 @@ interface SensorAlert {
   severity: 'high' | 'medium' | 'low';
 }
 
-interface Zone {
-  key: string;
-  labelEn: string;
-  labelTl: string;
-}
-
 function getTimeAgo(date: Date, now: Date): { en: string; tl: string } {
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -197,7 +191,14 @@ function computeHealthScore(record: SensorReading | null): {
 }
 
 export default function index() {
-  const { t, fontScale } = useApp();
+  const {
+    t,
+    fontScale,
+    zones,
+    activeZoneId,
+    setActiveZoneId,
+    createZone,
+  } = useApp();
   const colors = useThemeColors();
   const fs = (size: number) => Math.round(size * fontScale);
 
@@ -206,10 +207,6 @@ export default function index() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedZone, setSelectedZone] = useState<string>('A');
-  const [zones, setZones] = useState<Zone[]>([
-    { key: 'A', labelEn: 'Zone A', labelTl: 'Sona A' },
-  ]);
   const [newZoneNameEn, setNewZoneNameEn] = useState('');
   const [newZoneNameTl, setNewZoneNameTl] = useState('');
   const [addZoneModalVisible, setAddZoneModalVisible] = useState(false);
@@ -226,15 +223,6 @@ export default function index() {
     'Volcanic Loam',
   ];
   const [isExporting, setIsExporting] = useState(false);
-  
-
-  const generateNewZoneKey = useCallback((): string => {
-    const len = zones.length;
-    if (len < 26) {
-      return String.fromCharCode(65 + len);
-    }
-    return `Z${len - 25}`;
-  }, [zones.length]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -359,9 +347,9 @@ export default function index() {
     );
   }
 
-  const zoneObj = zones.find(z => z.key === selectedZone);
-  const zoneLabelEn = zoneObj?.labelEn ?? 'Zone';
-  const zoneLabelTl = zoneObj?.labelTl ?? 'Sona';
+  const zoneObj = zones.find(z => z.id === activeZoneId);
+  const zoneLabelEn = zoneObj?.name_en ?? 'Zone';
+  const zoneLabelTl = zoneObj?.name_tl ?? 'Sona';
   const totalAlerts = alerts.length;
 
   return (
@@ -391,36 +379,55 @@ export default function index() {
         {/* Zone selector */}
         <View className="mt-4">
           <Text style={{ fontSize: fs(12), fontWeight: '800', letterSpacing: 0.9, color: colors.subText }}>
-            {t('FIELD ZONES', 'SONA NG LUPA')}
+            {t('FIELD ZONES', 'SONA NG LARANGAN')}
           </Text>
         </View>
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
           {zones.map((zone) => (
             <TouchableOpacity
-              key={zone.key}
-              onPress={() => {
+              key={zone.id}
+              onPress={async () => {
                 lightHaptic();
-                setSelectedZone(zone.key);
+                await setActiveZoneId(zone.id);
               }}
-              className="border rounded-2xl h-13 p-4"
+              className="border rounded-2xl px-3 py-2"
               style={{
-                width: 80,
-                backgroundColor: selectedZone === zone.key ? colors.primary : colors.cardBgAlt,
-                borderColor: selectedZone === zone.key ? colors.primary : colors.border,
-                shadowColor: selectedZone === zone.key ? colors.primary : 'transparent',
+                width: 118,
+                minHeight: 64,
+                backgroundColor: activeZoneId === zone.id ? colors.primary : colors.cardBgAlt,
+                borderColor: activeZoneId === zone.id ? colors.primary : colors.border,
+                shadowColor: activeZoneId === zone.id ? colors.primary : 'transparent',
                 shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: selectedZone === zone.key ? 0.3 : 0,
+                shadowOpacity: activeZoneId === zone.id ? 0.3 : 0,
                 shadowRadius: 4,
-                elevation: selectedZone === zone.key ? 4 : 0,
+                elevation: activeZoneId === zone.id ? 4 : 0,
               }}
               accessibilityRole="button"
-              accessibilityLabel={t(`Select ${zone.labelEn}`, `Piliin ang ${zone.labelTl}`)}
+              accessibilityLabel={t(`Select ${zone.name_en}`, `Piliin ang ${zone.name_tl}`)}
             >
               <Text
-                style={{ fontSize: fs(16), fontWeight: 'bold', textAlign: 'center', color: selectedZone === zone.key ? 'white' : colors.text }}
+                numberOfLines={1}
+                style={{ fontSize: fs(14), fontWeight: 'bold', textAlign: 'center', color: activeZoneId === zone.id ? 'white' : colors.text }}
               >
-                {t(zone.labelEn, zone.labelTl)}
+                {t(zone.name_en, zone.name_tl)}
               </Text>
+              <View
+                style={{
+                  alignSelf: 'center',
+                  marginTop: 4,
+                  paddingHorizontal: 7,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                  backgroundColor: activeZoneId === zone.id ? 'rgba(255,255,255,0.2)' : colors.bg,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{ fontSize: fs(10), fontWeight: '700', color: activeZoneId === zone.id ? 'white' : colors.primary }}
+                >
+                  {zone.soil_type}
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
           <TouchableOpacity
@@ -430,7 +437,7 @@ export default function index() {
               setNewZoneNameTl('');
               setAddZoneModalVisible(true);
             }}
-            className="border rounded-2xl h-13 p-7 center"
+            className="border rounded-2xl h-13 p-4"
             style={{
               width: 80,
               backgroundColor: colors.cardBgAlt,
@@ -441,7 +448,6 @@ export default function index() {
           >
             <Ionicons name="add" size={24} color={colors.primary} />
           </TouchableOpacity>
-          
         </ScrollView>
 
         <View className="my-2">
@@ -677,7 +683,6 @@ export default function index() {
           ))
         )}
       </View>}
-      
 
       {/* Soil Health Detail Modal */}
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -916,23 +921,29 @@ export default function index() {
                 setSavingZone(true);
 
                 try {
-                  await fetch('https://capstone-eem0.onrender.com/device/soil-type', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ soil_type: selectedSoilType }),
-                  });
-                } catch (err) {
-                  console.warn('Failed to save soil type to backend:', err);
-                }
+                  const newZone = await createZone(
+                    newZoneNameEn.trim(),
+                    newZoneNameTl.trim(),
+                    selectedSoilType,
+                  );
 
-                const newKey = generateNewZoneKey();
-                setZones(prev => [...prev, { key: newKey, labelEn: newZoneNameEn.trim(), labelTl: newZoneNameTl.trim() }]);
-                setSelectedZone(newKey);
-                setNewZoneNameEn('');
-                setNewZoneNameTl('');
-                setSelectedSoilType(null);
-                setSavingZone(false);
-                setAddZoneModalVisible(false);
+                  if (!newZone) {
+                    Alert.alert(
+                      t('Could not save zone', 'Hindi ma-save ang sona'),
+                      t('Please check your connection and try again.', 'Suriin ang koneksyon at subukan muli.'),
+                    );
+                    return;
+                  }
+
+                  await setActiveZoneId(newZone.id);
+
+                  setNewZoneNameEn('');
+                  setNewZoneNameTl('');
+                  setSelectedSoilType(null);
+                  setAddZoneModalVisible(false);
+                } finally {
+                  setSavingZone(false);
+                }
               }}
               disabled={savingZone}
               className="mt-6 rounded-xl py-3 px-8"
@@ -944,7 +955,8 @@ export default function index() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>  
+      </Modal>
+
     </ScrollView>
   );
 }

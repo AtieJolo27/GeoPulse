@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import "../../global.css";
 
 export const unstable_settings = {
-  initialRouteName: 'crops',
+  initialRouteName: 'index',
 };
 
 

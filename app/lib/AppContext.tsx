@@ -13,7 +13,7 @@ interface Zone {
   soil_type: string;
 }
 
-const API_BASE_URL = 'https://capstone-eem0.onrender.com';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://capstone-eem0.onrender.com';
 
 interface AppContextType {
   theme: Theme;
@@ -133,6 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshZones = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/zones`);
+      if (!res.ok) throw new Error(`Zone request failed (${res.status})`);
       const json = await res.json();
       setZones(json.data ?? []);
     } catch (err) {
@@ -145,6 +146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const fetchActiveZone = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/device/active-zone`);
+      if (!res.ok) throw new Error(`Active-zone request failed (${res.status})`);
       const json = await res.json();
       if (json.zone) {
         setActiveZoneIdState(json.zone.id);
@@ -161,11 +163,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveZoneIdState(zoneId);
 
     try {
-      await fetch(`${API_BASE_URL}/device/active-zone`, {
+      const res = await fetch(`${API_BASE_URL}/device/active-zone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zone_id: zoneId }),
       });
+      if (!res.ok) throw new Error(`Active-zone update failed (${res.status})`);
     } catch (err) {
       console.warn('Failed to set active zone on backend:', err);
     }
@@ -182,6 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           soil_type: soilType,
         }),
       });
+      if (!res.ok) throw new Error(`Zone creation failed (${res.status})`);
       const json = await res.json();
 
       if (json.status === 'success' && json.zone) {

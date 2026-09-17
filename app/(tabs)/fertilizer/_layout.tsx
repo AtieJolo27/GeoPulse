@@ -4,7 +4,7 @@ import { Stack } from "expo-router";
 import "../../global.css";
 
 export const unstable_settings = {
-    initialRouteName: "fertilizers",
+    initialRouteName: "index",
 }
 export default function RecommendationLayout(){
     return (

@@ -1,50 +1,312 @@
-# Welcome to your Expo app 👋
+# 🌱 GeoPulse: An IoT-Based Intelligent Platform for Comparative Analysis of Diverse Soil Geologies and Nutrient Densities
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ **Capstone Project Presentation**
 
-## Get started
+**Group Members**
 
-1. Install dependencies
+- Jolo G. Atie
+- Christoper C. Ditaunon
+- Dave H. Limboc
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+# Slide 1 — Project Title
 
-   ```bash
-   npx expo start
-   ```
+# 🌱 GeoPulse
 
-In the output, you'll find options to open the app in a
+### An IoT-Based Intelligent Platform for Comparative Analysis of Diverse Soil Geologies and Nutrient Densities
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**Presented by:**
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- Jolo G. Atie
+- Christoper C. Ditaunon
+- Dave H. Limboc
 
-## Get a fresh project
+---
 
-When you're ready, run:
+# Slide 2 — Introduction
 
-```bash
-npm run reset-project
+Agriculture remains one of the most important sectors in food production. However, many farmers still rely on traditional methods when deciding which crops to plant and what fertilizers to apply.
+
+Incorrect crop selection and improper fertilizer application can lead to:
+
+Low crop yield
+Soil nutrient depletion
+Increased farming costs
+Reduced productivity
+
+GeoPulse addresses these challenges by utilizing IoT technology and Machine Learning to provide intelligent crop and fertilizer recommendations based on real-time soil conditions.
+
+---
+
+# Slide 3 — Purpose of the Project
+
+The purpose of GeoPulse is to develop an intelligent IoT-based soil analysis platform capable of collecting soil sensor data and generating AI-powered crop and fertilizer recommendations.
+
+The project aims to:
+
+- Analyze real-time soil conditions
+- Recommend the most suitable crop
+- Recommend the appropriate fertilizer
+- Store historical sensor readings
+- Assist farmers in making data-driven agricultural decisions
+
+---
+
+# Slide 4 — Scope of the Project
+
+## Included
+
+- Development of IoT hardware for soil monitoring
+- Collection of soil sensor data
+- Backend API development using FastAPI
+- Machine Learning integration
+- React Native mobile application
+- Supabase cloud database integration
+- Crop recommendation
+- Fertilizer recommendation
+- Prediction history
+- Real-time synchronization
+
+---
+
+## Excluded
+
+- Automatic irrigation
+- Pest detection
+- Drone integration
+- Satellite monitoring
+- Commercial deployment
+- Weather forecasting
+
+
+---
+
+# Slide 5 — Objectives
+
+## General Objective
+
+To develop an intelligent IoT platform capable of analyzing soil conditions and providing crop and fertilizer recommendations using Machine Learning.
+
+---
+
+## Specific Objectives
+
+- Collect soil sensor readings
+- Store collected data in a cloud database
+- Predict the most suitable crop
+- Recommend the best fertilizer
+- Develop a mobile application
+- Display historical prediction records
+
+---
+
+# Slide 6 — System Architecture
+<img width="1408" height="768" alt="Gemini_Generated_Image_opid5ropid5ropid" src="https://github.com/user-attachments/assets/5f4c8671-0e44-4a2a-b801-0aaaca8ef436" />
+
+---
+
+# Slide 7 — Technologies Used
+
+## Hardware
+
+- ESP32
+- 7 in 1 Soil Sensors
+
+---
+
+## Backend
+
+- Python
+- FastAPI
+- Uvicorn
+- Laravel
+
+---
+
+## Machine Learning
+
+- Scikit-learn
+- Random Forest Classifier
+- Pandas
+- NumPy
+
+---
+
+## Database
+
+- Supabase
+- PostgreSQL
+
+---
+
+## Frontend
+
+- React Native
+- Expo
+- TypeScript
+- NativeWind
+
+---
+
+# Slide 8 — Machine Learning
+
+GeoPulse utilizes two Random Forest models.
+
+## Model 1
+
+### Crop Recommendation
+
+Input Features
+
+- Soil Moisture
+- Soil Temperature
+- Air Temperature
+- Humidity
+- Soil pH
+- Nitrogen
+- Phosphorus
+- Potassium
+
+Output
+
+- Best Crop
+- Alternative Crops
+- Confidence Score
+
+
+---
+
+## Model 2
+
+### Fertilizer Recommendation
+
+Input Features
+
+- Recommended Crop
+- Nitrogen
+- Phosphorus
+- Potassium
+- Temperature
+- Humidity
+- Soil pH
+
+Output
+
+- Best Fertilizer
+- Alternative Fertilizers
+- Confidence Score
+
+
+---
+
+# Slide 9 — Application Workflow
+# Application Workflow
+
+The GeoPulse system follows the workflow below:
+
+```text
+┌─────────────────────────┐
+│      Soil Sensors       │
+│  Collect Soil Readings  │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│  ESP32 Microcontroller  │
+│  Process Sensor Data    │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│    FastAPI Backend      │
+│ Receive & Process Data  │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│ Crop Recommendation ML  │
+│   Random Forest Model   │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│ Fertilizer Recommendation │
+│   Random Forest Model      │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│  Supabase Database      │
+│ Store Results & History  │
+└────────────┬────────────┘
+             │
+             ▼
+┌─────────────────────────┐
+│ React Native Mobile App │
+│ Display Recommendations  │
+└─────────────────────────┘
+
+
 ```
+---
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+# Slide 10 — Mobile Application Features
 
-## Learn more
+## Dashboard
 
-To learn more about developing your project with Expo, look at the following resources:
+Displays
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Latest analysis
+- Soil status
+- Quick recommendations
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## Crop Recommendation
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Displays
+
+- Best crop
+- Confidence score
+- Alternative crops
+
+---
+
+## Fertilizer Recommendation
+
+Displays
+
+- Best fertilizer
+- Confidence score
+- Alternative fertilizers
+
+---
+
+## History
+
+Displays
+
+- Previous analyses
+- Crop recommendations
+- Fertilizer recommendations
+- Date and time
+
+---
+# Slide 11 — Progress
+
+## Working Features
+
+- Supabase Connection
+- Working Machine Learning (Random Forest)
+- Crop Recommendation based on Random Forest
+- Fertilizer Recommendation based on Random Forest
+- AI-Based Reasoning for Crop Recommendation
+- AI-Based Reasoning for Fertilizer Recommendation
+- Charts for Soil Health and Parameters History
+
+
+
+
+
+

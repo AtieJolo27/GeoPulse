@@ -165,7 +165,7 @@ export default function ProfileScreen() {
   const subTextColor = isDarkMode ? '#6B7280' : '#6B7280';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const headerBg = isDarkMode ? '#0F3D37' : '#184B44';
-  const fs = (size: number) => size * fontScale;
+    const fs = (size: number) => size * fontScale;
 
   // If user is not logged in, show login form
   if (!user) {
@@ -247,10 +247,7 @@ export default function ProfileScreen() {
                   await login(email, password);
                   setEmail('');
                   setPassword('');
-                  // Navigation is handled declaratively by the Redirect
-                  // in app/_layout.tsx once `user` becomes truthy —
-                  // no manual router.replace() here to avoid a race
-                  // condition with that redirect.
+                  router.replace('/(tabs)/home');
                 } catch (error: any) {
                   setLoginError(error.message ?? 'Login failed');
                 }
@@ -669,50 +666,6 @@ export default function ProfileScreen() {
                   {language === 'tagalog' ? option.labelTl : option.labelEn}
                 </Text>
                 {fontSize === option.key && (
-                  <Ionicons name="checkmark-circle" size={22} color="#16A34A" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Language Selection Modal */}
-      <Modal visible={languageModalVisible} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View className="bg-white rounded-2xl w-full p-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-bold text-gray-800">
-                {t('Select Language', 'Pumili ng Wika')}
-              </Text>
-              <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#9CA3AF" />
-              </TouchableOpacity>
-            </View>
-
-            {LANGUAGE_OPTIONS.map((option, index) => (
-              <TouchableOpacity
-                key={option.key}
-                onPress={() => handleLanguageSelect(option.key)}
-                className="flex-row items-center py-4 px-2"
-                style={{
-                  borderBottomWidth: index === LANGUAGE_OPTIONS.length - 1 ? 0 : 1,
-                  borderBottomColor: '#E5E7EB',
-                }}
-              >
-                <View className="w-9 h-9 bg-green-50 rounded-full items-center justify-center mr-3">
-                  <Ionicons name={option.icon} size={18} color="#0D5E33" />
-                </View>
-                <Text
-                  className="flex-1 ml-1 font-medium"
-                  style={{
-                    color: language === option.key ? '#0D5E33' : '#4B5563',
-                    fontWeight: language === option.key ? '700' : '500',
-                  }}
-                >
-                  {option.label}
-                </Text>
-                {language === option.key && (
                   <Ionicons name="checkmark-circle" size={22} color="#16A34A" />
                 )}
               </TouchableOpacity>
