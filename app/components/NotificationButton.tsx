@@ -22,7 +22,7 @@ export function NotificationButton() {
   const badgeLabel = alerts.length > 9 ? '9+' : String(alerts.length);
 
   return <>
-    <TouchableOpacity onPress={() => { setVisible(true); loadAlerts(); }} activeOpacity={0.7} hitSlop={8} accessibilityRole="button" accessibilityLabel={alerts.length ? `${alerts.length} notifications. Open notifications` : 'Open notifications'} style={{ width: 36, height: 36, marginRight: 8, position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
+    <TouchableOpacity onPress={() => { setVisible(true); loadAlerts(); }} activeOpacity={0.7} hitSlop={8} accessibilityRole="button" accessibilityLabel={alerts.length ? `${alerts.length} notifications. Open notifications` : 'Open notifications'} style={{ width: 36, height: 36, marginRight: 0, position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name="notifications-outline" size={23} color="#FFFFFF" />
       {alerts.length > 0 ? <View style={{ position: 'absolute', right: 1, top: 1, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: '#DC2626', borderWidth: 2, borderColor: '#1B5E37', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 }}><Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800', lineHeight: 12 }}>{badgeLabel}</Text></View> : null}
     </TouchableOpacity>

@@ -1,3 +1,4 @@
+import { validPlantingDate } from '@/lib/plantingDate';
 import { supabase } from '@/lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -11,6 +12,9 @@ interface Zone {
   name_en: string;
   name_tl: string;
   soil_type: string;
+  current_crop: string | null;
+  planted_on?: string | null;
+  updated_at: string | null;
 }
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://capstone-eem0.onrender.com';
@@ -35,6 +39,7 @@ interface AppContextType {
   activeZoneId: number | null;
   setActiveZoneId: (zoneId: number) => Promise<void>;
   createZone: (nameEn: string, nameTl: string, soilType: string) => Promise<Zone | null>;
+  setPlantedCrop: (zoneId: number, cropName: string, plantedOn: string) => Promise<boolean>;
   refreshZones: () => Promise<void>;
 }
 
@@ -58,6 +63,7 @@ const AppContext = createContext<AppContextType>({
   activeZoneId: null,
   setActiveZoneId: async () => { },
   createZone: async () => null,
+  setPlantedCrop: async () => false,
   refreshZones: async () => { },
 });
 
@@ -230,6 +236,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe(); // was `subscription.unsubscribe` (missing call) before
     };
   }, []);
+  const setPlantedCrop = useCallback(async (zoneId: number, cropName: string, plantedOn: string): Promise<boolean> => {
+    if (!validPlantingDate(plantedOn)) return false;
+    try {
+      const { data, error } = await supabase
+        .from('zones')
+        .update({
+          current_crop: cropName,
+          planted_on: plantedOn,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', zoneId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setZones((prev) =>
+        prev.map((z) => (z.id === zoneId ? { ...z, ...data } : z))
+      );
+      return true;
+    } catch (err) {
+      console.warn('Failed to set planted crop:', err);
+      return false;
+    }
+  }, []);
 
   return (
     <AppContext.Provider
@@ -246,11 +277,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loading,
         fontSize, setFontSize, fontScale,
 
-        zones,
+                zones,
         zonesLoading,
         activeZoneId,
         setActiveZoneId,
         createZone,
+        setPlantedCrop,
         refreshZones,
       }}
     >
@@ -264,3 +296,4 @@ export function useApp() {
 }
 
 export type { FontSize, Zone };
+

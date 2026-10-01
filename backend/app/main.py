@@ -11,6 +11,7 @@ from app.services.history_service import get_prediction_history
 from fastapi.middleware.cors import CORSMiddleware
 from app.machine_learning.predict_fertilizer import predict_fertilizer
 from app.services.fertilizer_service import save_fertilizer_prediction
+from app.services.zone_recommendations import recommend_for_zone
 
 app = FastAPI()
 
@@ -168,3 +169,15 @@ def prediction_history():
         "count": len(history),
         "data": history
     }
+
+
+@app.get('/zones/{zone_id}/recommendations')
+def zone_recommendations(zone_id: int):
+    try:
+        return recommend_for_zone(supabase, zone_id, get_default_farm_id(), predict_crop, predict_fertilizer)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail='Unable to generate zone recommendations') from exc
