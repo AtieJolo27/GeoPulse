@@ -1,3 +1,4 @@
+import { useThemeColors } from '@/app/lib/useThemeColors';
 /**
  * SensorWifiScreen.js
  *
@@ -47,6 +48,23 @@ import {
 const AP_MODE_IP = "192.168.4.1"; // Fixed IP of the sensor's own provisioning AP
 
 export default function SensorWifiScreen() {
+  const colors = useThemeColors();
+  const styles = {
+    ...baseStyles,
+    container: { ...baseStyles.container, backgroundColor: colors.bg },
+    title: { ...baseStyles.title, color: colors.text },
+    label: { ...baseStyles.label, color: colors.subText },
+    paragraph: { ...baseStyles.paragraph, color: colors.text },
+    input: { ...baseStyles.input, color: colors.text, backgroundColor: colors.inputBg, borderColor: colors.border },
+    buttonSecondary: { ...baseStyles.buttonSecondary, backgroundColor: colors.cardBgAlt },
+    buttonSecondaryText: { ...baseStyles.buttonSecondaryText, color: colors.text },
+    statusBox: { ...baseStyles.statusBox, backgroundColor: colors.cardBg },
+    statusLine: { ...baseStyles.statusLine, color: colors.text },
+    networkRow: { ...baseStyles.networkRow, backgroundColor: colors.cardBg, borderColor: colors.border },
+    networkRowSelected: { ...baseStyles.networkRowSelected, backgroundColor: colors.cardBgAlt },
+    networkName: { ...baseStyles.networkName, color: colors.text },
+    networkInfo: { ...baseStyles.networkInfo, color: colors.subText },
+  };
   // The sensor's LAN IP while connected to your home Wi-Fi.
   // There's no reliable auto-discovery without mDNS/native modules,
   // so we let the user type it in once (e.g. from their router's
@@ -268,6 +286,7 @@ export default function SensorWifiScreen() {
             <Text style={styles.paragraph}>Napili: {selectedSsid}</Text>
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.subText}
               placeholder="Wi-Fi password"
               secureTextEntry
               value={password}
@@ -294,6 +313,7 @@ export default function SensorWifiScreen() {
       <Text style={styles.label}>LAN IP ng sensor</Text>
       <TextInput
         style={styles.input}
+              placeholderTextColor={colors.subText}
         placeholder="hal. 192.168.1.22"
         value={sensorIp}
         onChangeText={setSensorIp}
@@ -331,7 +351,7 @@ export default function SensorWifiScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f4f7f5" },
   title: { fontSize: 22, fontWeight: "700", marginBottom: 16, color: "#222" },
   label: { fontSize: 14, color: "#555", marginBottom: 6 },

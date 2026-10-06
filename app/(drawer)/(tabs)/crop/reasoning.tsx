@@ -156,7 +156,7 @@ export default function Reasoning() {
   // Loading state for initial data fetch
   if (loadingData) {
     return (
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ fontSize: fs(14), marginTop: 16, color: colors.subText }}>
           {t('Loading soil data...', 'Naglo-load ng datos ng lupa...')}
@@ -168,7 +168,7 @@ export default function Reasoning() {
   // Error state
   if (fetchError) {
     return (
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
         <Ionicons name="cloud-offline-outline" size={48} color={colors.mutedText} />
         <Text style={{ fontSize: fs(18), fontWeight: 'bold', marginTop: 16, textAlign: 'center', color: colors.text }}>
           {t('Error Loading Data', 'Error sa Pag-load ng Datos')}
@@ -181,7 +181,7 @@ export default function Reasoning() {
   }
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[styles.container, { backgroundColor: colors.bg }]}>
       <Text style={{ fontSize: fs(24), fontWeight: 'bold', marginBottom: 4, textTransform: 'capitalize', color: colors.text }}>
         {activeCrop ?? t('Loading...', 'Naglo-load...')}
       </Text>

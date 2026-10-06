@@ -1,3 +1,5 @@
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerToggleButton } from 'expo-router/drawer';
 import { useState } from 'react';
@@ -8,6 +10,8 @@ import { WeatherIndicator } from './WeatherIndicator';
 
 
 export function HeaderActions() {
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [wifiModalVisible, setWifiModalVisible] = useState(false);
 
   return (
@@ -29,7 +33,6 @@ export function HeaderActions() {
         <NotificationButton />
         <DrawerToggleButton
   tintColor="#FFFFFF"
-  style={{ width: 36, height: 36, padding: 0 }}
 />
         {/* <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open profile" onPress={() => router.push('/profile')} hitSlop={8} activeOpacity={0.7} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="person-circle-outline" size={25} color="#FFFFFF" />
@@ -41,16 +44,16 @@ export function HeaderActions() {
         animationType="slide"
         onRequestClose={() => setWifiModalVisible(false)}
       >
-        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <View style={{ flex: 1, backgroundColor: colors.bg, paddingBottom: insets.bottom }}>
           <View
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
               paddingHorizontal: 20,
-              paddingTop: 50,
+              paddingTop: insets.top + 12,
               paddingBottom: 12,
-              backgroundColor: '#1B5E37',
+              backgroundColor: colors.headerBg,
             }}
           >
             <Text style={{ fontSize: 18, fontWeight: 'bold', color: 'white' }}>Sensor Wi-Fi</Text>

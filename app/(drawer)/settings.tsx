@@ -1,9 +1,12 @@
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { FontSize } from '@/app/lib/AppContext';
 import { useApp } from '@/app/lib/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import Constants from 'expo-constants';
 import "../global.css";
 
 const LANGUAGE_OPTIONS = [
@@ -11,15 +14,17 @@ const LANGUAGE_OPTIONS = [
   { key: 'english' as const, label: 'English', icon: 'language-outline' as const },
 ];
 
-export default function settings() {
+export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  const { isDarkMode, toggleTheme, language, setLanguage, t, user, login, logout, loading, fontSize, setFontSize, fontScale } = useApp();
-  const bgColor = isDarkMode ? '#111827' : '#FFFFFF';
-  const cardBg = isDarkMode ? '#1F2937' : '#FFFFFF';
-  const textColor = isDarkMode ? '#9CA3AF' : '#1F2937';
-  const subTextColor = isDarkMode ? '#6B7280' : '#6B7280';
+  const { isDarkMode, toggleTheme, language, setLanguage, t, fontSize, setFontSize, fontScale } = useApp();
+  const bgColor = colors.bg;
+  const cardBg = colors.cardBg;
+  const textColor = isDarkMode ? '#F3F4F6' : '#1F2937';
+  const subTextColor = colors.subText;
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const headerBg = isDarkMode ? '#0F3D37' : '#184B44';
   const fs = (size: number) => size * fontScale;
@@ -36,11 +41,11 @@ export default function settings() {
   };
 
   return (
-    <View>
+    <View style={{ flex: 1, backgroundColor: bgColor, paddingBottom: insets.bottom }}>
       <View
         className="flex-row justify-center px-3 pt-12 pb-5"
         style={{
-          backgroundColor: '#1B5E37',
+          backgroundColor: headerBg, paddingTop: insets.top + 12,
           shadowColor: '#0D5E33',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
@@ -66,17 +71,17 @@ export default function settings() {
         {/* Balances the back button so the title stays centered */}
         <View style={{ width: 24 }} />
       </View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
       <View
         className="rounded-2xl p-4 mb-4 shadow-sm"
         style={{ backgroundColor: cardBg, borderColor: borderColor, borderWidth: 1 }}
       >
         <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: fs(12), letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
-          {t('Settings', 'Settings')}
+          {t('Appearance and Accessibility', 'Hitsura at Accessibility')}
         </Text>
 
         {/* Dark Mode Toggle */}
-        <TouchableOpacity
-          onPress={toggleTheme}
+        <View
           className="flex-row items-center py-3"
           style={{ borderBottomWidth: 1, borderBottomColor: borderColor }}
         >
@@ -92,21 +97,8 @@ export default function settings() {
               {t('Dark Mode', 'Dark Mode')}
             </Text>
           </View>
-          <View
-            className={`w-10 h-5 rounded-full items-center justify-center`}
-            style={{
-              backgroundColor: isDarkMode ? '#16A34A' : '#D1D5DB',
-            }}
-          >
-            <View
-              className="w-4 h-4 rounded-full bg-white shadow-sm"
-              style={{
-                alignSelf: isDarkMode ? 'flex-end' : 'flex-start',
-                marginHorizontal: 2,
-              }}
-            />
-          </View>
-        </TouchableOpacity>
+          <Switch value={isDarkMode} onValueChange={toggleTheme} accessibilityLabel={t('Dark Mode', 'Dark Mode')} trackColor={{ false: '#D1D5DB', true: '#16A34A' }} />
+        </View>
 
         {/* Language Selector */}
         <TouchableOpacity
@@ -148,11 +140,11 @@ export default function settings() {
         </TouchableOpacity>
 
         {/* Font Size Selection Modal */}
-        <Modal visible={fontSizeModalVisible} transparent animationType="fade">
+        <Modal visible={fontSizeModalVisible} transparent animationType="fade" onRequestClose={() => setFontSizeModalVisible(false)}>
           <View className="flex-1 bg-black/50 justify-center items-center px-6">
-            <View className="bg-white rounded-2xl w-full p-6">
+            <View className="rounded-2xl w-full p-6" style={{ backgroundColor: cardBg }}>
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-lg font-bold text-gray-800">
+                <Text style={{ color: textColor, fontSize: fs(18), fontWeight: '700' }}>
                   {t('Select Font Size', 'Pumili ng Laki ng Teksto')}
                 </Text>
                 <TouchableOpacity onPress={() => setFontSizeModalVisible(false)}>
@@ -204,7 +196,7 @@ export default function settings() {
                   className="flex-row items-center py-4 px-2"
                   style={{
                     borderBottomWidth: index === 2 ? 0 : 1,
-                    borderBottomColor: '#E5E7EB',
+                    borderBottomColor: borderColor,
                   }}
                 >
                   <View className="w-9 h-9 bg-green-50 rounded-full items-center justify-center mr-3">
@@ -218,7 +210,7 @@ export default function settings() {
                     className="flex-1 ml-1 font-medium"
                     style={{
                       fontSize: option.fontSize,
-                      color: fontSize === option.key ? '#0D5E33' : '#4B5563',
+                      color: fontSize === option.key ? (isDarkMode ? '#86EFAC' : '#0D5E33') : textColor,
                       fontWeight: fontSize === option.key ? '700' : '500',
                     }}
                   >
@@ -234,11 +226,11 @@ export default function settings() {
         </Modal>
 
         {/* Language Selection Modal */}
-        <Modal visible={languageModalVisible} transparent animationType="fade">
+        <Modal visible={languageModalVisible} transparent animationType="fade" onRequestClose={() => setLanguageModalVisible(false)}>
           <View className="flex-1 bg-black/50 justify-center items-center px-6">
-            <View className="bg-white rounded-2xl w-full p-6">
+            <View className="rounded-2xl w-full p-6" style={{ backgroundColor: cardBg }}>
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-lg font-bold text-gray-800">
+                <Text style={{ color: textColor, fontSize: fs(18), fontWeight: '700' }}>
                   {t('Select Language', 'Pumili ng Wika')}
                 </Text>
                 <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
@@ -253,7 +245,7 @@ export default function settings() {
                   className="flex-row items-center py-4 px-2"
                   style={{
                     borderBottomWidth: index === LANGUAGE_OPTIONS.length - 1 ? 0 : 1,
-                    borderBottomColor: '#E5E7EB',
+                    borderBottomColor: borderColor,
                   }}
                 >
                   <View className="w-9 h-9 bg-green-50 rounded-full items-center justify-center mr-3">
@@ -262,7 +254,7 @@ export default function settings() {
                   <Text
                     className="flex-1 ml-1 font-medium"
                     style={{
-                      color: language === option.key ? '#0D5E33' : '#4B5563',
+                      color: language === option.key ? (isDarkMode ? '#86EFAC' : '#0D5E33') : textColor,
                       fontWeight: language === option.key ? '700' : '500',
                     }}
                   >
@@ -277,8 +269,12 @@ export default function settings() {
           </View>
         </Modal>
       </View>
+      <View className="rounded-2xl p-4" style={{ backgroundColor: cardBg, borderColor, borderWidth: 1 }}>
+        <Text style={{ color: textColor, fontSize: fs(16), fontWeight: '600' }}>{t('About GeoPulse', 'Tungkol sa GeoPulse')}</Text>
+        <Text style={{ color: subTextColor, fontSize: fs(14), marginTop: 8 }}>{t('Soil monitoring and farming recommendations.', 'Pagsubaybay sa lupa at mga rekomendasyon sa pagsasaka.')}</Text>
+        <Text style={{ color: subTextColor, fontSize: fs(12), marginTop: 8 }}>{t('Version', 'Bersyon')} {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+      </View>
+      </ScrollView>
     </View>
   )
 }
-
-const styles = StyleSheet.create({})

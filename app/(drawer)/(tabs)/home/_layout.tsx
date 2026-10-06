@@ -1,18 +1,20 @@
-import { HeaderActions } from '@/app/components/HeaderActions';
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { TabScreenHeader } from '@/app/components/TabScreenHeader';
 import { Stack } from 'expo-router';
-import { StyleSheet } from 'react-native';
 import "../../../global.css";
 
 export const unstable_settings = {
   initialRouteName: 'index',
 };
 export default function HomeLayout () {
+  const colors = useThemeColors();
   return (
     <Stack screenOptions={{
       headerTitle:"My Field",
       headerTitleStyle: { fontWeight: 'bold', fontSize: 20, color: 'white' },
-      headerStyle: { backgroundColor: '#1B5E37' },
-      headerRight: () => <HeaderActions />
+      headerStyle: { backgroundColor: colors.headerBg },
+      contentStyle: { backgroundColor: colors.bg },
+      header: ({ options, route, navigation, back }) => <TabScreenHeader title={typeof options.headerTitle === 'string' ? options.headerTitle : options.title ?? route.name} onBack={back ? () => navigation.goBack() : undefined} />
     }}>
         <Stack.Screen
             name="index"
@@ -24,6 +26,3 @@ export default function HomeLayout () {
     </Stack>
   );
 }
-
-
-const styles = StyleSheet.create({})

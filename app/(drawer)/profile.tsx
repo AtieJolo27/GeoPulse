@@ -1,7 +1,10 @@
+import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/app/lib/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import {
   ActivityIndicator,
   Alert,
@@ -36,9 +39,9 @@ const DEFAULT_SECTIONS: Section[] = [
     titleEn: 'Personal Information',
     titleTl: 'Personal na Impormasyon',
     items: [
-      { icon: 'person-outline' as const, labelKey: 'name', labelEn: 'Name', labelTl: 'Pangalan', value: 'Juan Dela Cruz', key: 'name' },
-      { icon: 'location-outline' as const, labelKey: 'location', labelEn: 'Farm Location', labelTl: 'Lokasyon ng Bukid', value: 'Barangay San Isidro, Nueva Ecija', key: 'location' },
-      { icon: 'call-outline' as const, labelKey: 'contact', labelEn: 'Contact', labelTl: 'Kontak', value: '+63 912 345 6789', key: 'contact' },
+      { icon: 'person-outline' as const, labelKey: 'name', labelEn: 'Name', labelTl: 'Pangalan', value: '', key: 'name' },
+      { icon: 'location-outline' as const, labelKey: 'location', labelEn: 'Farm Location', labelTl: 'Lokasyon ng Bukid', value: '', key: 'location' },
+      { icon: 'call-outline' as const, labelKey: 'contact', labelEn: 'Contact', labelTl: 'Kontak', value: '', key: 'contact' },
     ],
   },
   {
@@ -46,39 +49,56 @@ const DEFAULT_SECTIONS: Section[] = [
     titleEn: 'Farm Details',
     titleTl: 'Detalye ng Bukid',
     items: [
-      { icon: 'map-outline' as const, labelKey: 'farmSize', labelEn: 'Farm Size', labelTl: 'Laki ng Bukid', value: '2.5 Hectares', key: 'farmSize' },
-      { icon: 'leaf-outline' as const, labelKey: 'primaryCrop', labelEn: 'Primary Crop', labelTl: 'Pangunahing Pananim', value: 'Rice', key: 'primaryCrop' },
-      { icon: 'water-outline' as const, labelKey: 'irrigation', labelEn: 'Irrigation Type', labelTl: 'Uri ng Patubig', value: 'Flood Irrigation', key: 'irrigation' },
+      { icon: 'map-outline' as const, labelKey: 'farmSize', labelEn: 'Farm Size', labelTl: 'Laki ng Bukid', value: '', key: 'farmSize' },
+      { icon: 'leaf-outline' as const, labelKey: 'primaryCrop', labelEn: 'Primary Crop', labelTl: 'Pangunahing Pananim', value: '', key: 'primaryCrop' },
+      { icon: 'water-outline' as const, labelKey: 'irrigation', labelEn: 'Irrigation Type', labelTl: 'Uri ng Patubig', value: '', key: 'irrigation' },
     ],
   },
 ];
 
-const LANGUAGE_OPTIONS = [
-  { key: 'tagalog' as const, label: 'Tagalog', icon: 'chatbubbles-outline' as const },
-  { key: 'english' as const, label: 'English', icon: 'language-outline' as const },
-];
-
 export default function ProfileScreen() {
-  const { isDarkMode, toggleTheme, language, setLanguage, t, user, login, logout, loading, fontSize, setFontSize, fontScale } = useApp();
+  const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
+  const { isDarkMode, language, t, user, login, loading, fontScale, zones } = useApp();
 
-  const [sections, setSections] = useState<Section[]>(DEFAULT_SECTIONS);
+  const metadata = user?.user_metadata ?? {};
+  const sections: Section[] = DEFAULT_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.map(item => ({
+      ...item,
+      value: item.key === 'name' ? metadata.full_name ?? '' : metadata.farm_profile?.[item.key] ?? '',
+    })),
+  }));
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [editingItem, setEditingItem] = useState<EditableField | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  const [farmerName, setFarmerName] = useState(user?.user_metadata?.full_name ?? 'Juan Dela Cruz');
-  const [farmerRole, setFarmerRole] = useState(t('Farmer', 'Magsasaka') + ' • Nueva Ecija');
+  const farmerName = metadata.full_name ?? '';
+  const farmerRole = metadata.role_location ?? '';
   const [editNameVisible, setEditNameVisible] = useState(false);
   const [editNameValue, setEditNameValue] = useState(farmerName);
   const [editRoleValue, setEditRoleValue] = useState(farmerRole);
-  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Login form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [fontSizeModalVisible, setFontSizeModalVisible] = useState(false);
+  const saveProfile = async (updatedSections: Section[], name: string, role: string) => {
+    setSaving(true);
+    try {
+      const farmProfile = Object.fromEntries(updatedSections.flatMap(section => section.items.map(item => [item.key, item.value])));
+      const { error } = await supabase.auth.updateUser({ data: { full_name: name, role_location: role, farm_profile: farmProfile } });
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      Alert.alert(t('Unable to save', 'Hindi ma-save'), error instanceof Error ? error.message : t('Please try again.', 'Subukan muli.'));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleOpenEdit = (section: Section, item: EditableField) => {
     setEditingSection(section);
@@ -87,7 +107,7 @@ export default function ProfileScreen() {
     setEditModalVisible(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingSection || !editingItem) return;
 
     const updatedSections = sections.map((sec) => {
@@ -96,7 +116,7 @@ export default function ProfileScreen() {
           ...sec,
           items: sec.items.map((it) => {
             if (it.key === editingItem.key) {
-              return { ...it, value: editValue };
+              return { ...it, value: editValue.trim() };
             }
             return it;
           }),
@@ -105,7 +125,7 @@ export default function ProfileScreen() {
       return sec;
     });
 
-    setSections(updatedSections);
+    if (!await saveProfile(updatedSections, editingItem.key === 'name' ? editValue.trim() : farmerName, farmerRole)) return;
     setEditModalVisible(false);
     setEditingSection(null);
     setEditingItem(null);
@@ -117,10 +137,7 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleSaveName = () => {
-    setFarmerName(editNameValue);
-    setFarmerRole(editRoleValue);
-    setEditNameVisible(false);
+  const handleSaveName = async () => {
 
     const updatedSections = sections.map((sec) => {
       if (sec.titleKey === 'personalInfo') {
@@ -128,7 +145,7 @@ export default function ProfileScreen() {
           ...sec,
           items: sec.items.map((it) => {
             if (it.key === 'name') {
-              return { ...it, value: editNameValue };
+              return { ...it, value: editNameValue.trim() };
             }
             return it;
           }),
@@ -136,7 +153,8 @@ export default function ProfileScreen() {
       }
       return sec;
     });
-    setSections(updatedSections);
+    if (!await saveProfile(updatedSections, editNameValue.trim(), editRoleValue.trim())) return;
+    setEditNameVisible(false);
 
     Alert.alert(
       t('Saved', 'Na-save'),
@@ -144,24 +162,10 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleLanguageSelect = (lang: 'tagalog' | 'english') => {
-    setLanguage(lang);
-    setLanguageModalVisible(false);
-    setFarmerRole(
-      (lang === 'tagalog' ? 'Magsasaka' : 'Farmer') + ' • Nueva Ecija'
-    );
-    Alert.alert(
-      t('Language Changed', 'Binago ang Wika'),
-      lang === 'tagalog'
-        ? 'Ang wika ay nakatakda sa Tagalog.'
-        : 'Language has been set to English.'
-    );
-  };
-
-  const bgColor = isDarkMode ? '#111827' : '#FFFFFF';
-  const cardBg = isDarkMode ? '#1F2937' : '#FFFFFF';
-  const textColor = isDarkMode ? '#9CA3AF' : '#1F2937';
-  const subTextColor = isDarkMode ? '#6B7280' : '#6B7280';
+  const bgColor = colors.bg;
+  const cardBg = colors.cardBg;
+  const textColor = isDarkMode ? '#F3F4F6' : '#1F2937';
+  const subTextColor = colors.subText;
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const headerBg = isDarkMode ? '#0F3D37' : '#184B44';
     const fs = (size: number) => size * fontScale;
@@ -169,15 +173,15 @@ export default function ProfileScreen() {
   // If user is not logged in, show login form
   if (!user) {
     return (
-      <View className="flex-1" style={{ backgroundColor: bgColor }}>
+      <View className="flex-1" style={{ backgroundColor: bgColor, paddingBottom: insets.bottom }}>
         {/* Header — no back button here on purpose; login is the auth gate */}
-        <View className="pt-12 pb-8 px-6 rounded-b-3xl" style={{ backgroundColor: headerBg }}>
+        <View className="pt-12 pb-8 px-6 rounded-b-3xl" style={{ backgroundColor: headerBg, paddingTop: insets.top + 12 }}>
           <View className="flex-row items-center justify-between mb-4">
             <View style={{ width: 24 }} />
             <Text className="text-white font-bold text-lg">
               {t('Login', 'Mag-login')}
             </Text>
-            <TouchableOpacity onPress={() => alert(t('Settings', 'Settings'))}>
+            <TouchableOpacity onPress={() => router.push('/settings')}>
               <Ionicons name="settings-outline" size={24} color="white" />
             </TouchableOpacity>
           </View>
@@ -204,7 +208,9 @@ export default function ProfileScreen() {
                 {t('Email', 'Email')}
               </Text>
               <TextInput
-                className="border border-gray-300 rounded-xl p-3 text-gray-800 text-base"
+                className="rounded-xl p-3"
+                style={{ borderWidth: 1, borderColor, color: textColor, backgroundColor: colors.inputBg, fontSize: fs(16) }}
+                placeholderTextColor={subTextColor}
                 value={email}
                 onChangeText={setEmail}
                 placeholder={t('Enter your email', 'Ilagay ang iyong email')}
@@ -220,7 +226,9 @@ export default function ProfileScreen() {
                 {t('Password', 'Password')}
               </Text>
               <TextInput
-                className="border border-gray-300 rounded-xl p-3 text-gray-800 text-base"
+                className="rounded-xl p-3"
+                style={{ borderWidth: 1, borderColor, color: textColor, backgroundColor: colors.inputBg, fontSize: fs(16) }}
+                placeholderTextColor={subTextColor}
                 value={password}
                 onChangeText={setPassword}
                 placeholder={t('Enter your password', 'Ilagay ang iyong password')}
@@ -246,7 +254,7 @@ export default function ProfileScreen() {
                   await login(email, password);
                   setEmail('');
                   setPassword('');
-                  router.replace('../(tabs)/home');
+                  router.replace('/(drawer)/(tabs)/home');
                 } catch (error: any) {
                   setLoginError(error.message ?? 'Login failed');
                 }
@@ -291,9 +299,9 @@ export default function ProfileScreen() {
 
   // If user is logged in, show the profile screen
   return (
-    <View className="flex-1" style={{ backgroundColor: bgColor }}>
+    <View className="flex-1" style={{ backgroundColor: bgColor, paddingBottom: insets.bottom }}>
       {/* Header */}
-      <View className="pt-12 pb-8 px-6 rounded-b-3xl" style={{ backgroundColor: headerBg, shadowColor: '#0D5E33', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
+      <View className="pt-12 pb-8 px-6 rounded-b-3xl" style={{ backgroundColor: headerBg, paddingTop: insets.top + 12, shadowColor: '#0D5E33', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}>
         <View className="flex-row items-center justify-between mb-4">
           {router.canGoBack() ? (
             <TouchableOpacity onPress={() => router.back()}>
@@ -305,14 +313,8 @@ export default function ProfileScreen() {
           <Text style={{ color: 'white', fontWeight: 'bold', fontSize: fs(18) }}>
             {t('Profile', 'Profile')}
           </Text>
-          <TouchableOpacity onPress={async () => {
-            try {
-              await logout();
-            } catch (error) {
-              alert(t('Logout failed', 'Nabigo ang pag-logout'));
-            }
-          }}>
-            <Ionicons name="log-out-outline" size={24} color="white" />
+          <TouchableOpacity onPress={() => router.push('/settings')} accessibilityLabel={t('Settings', 'Mga Setting')}>
+            <Ionicons name="settings-outline" size={24} color="white" />
           </TouchableOpacity>
         </View>
         <View className="items-center">
@@ -320,7 +322,7 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={40} color="white" />
           </View>
           <View className="flex-row items-center">
-            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: fs(20) }}>{farmerName}</Text>
+            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: fs(20) }}>{farmerName || t('Your Profile', 'Iyong Profile')}</Text>
             <TouchableOpacity
               onPress={() => {
                 setEditNameValue(farmerName);
@@ -332,7 +334,7 @@ export default function ProfileScreen() {
               <Ionicons name="pencil" size={14} color="white" />
             </TouchableOpacity>
           </View>
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: fs(14) }}>{farmerRole}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: fs(14) }}>{farmerRole || t('Farmer', 'Magsasaka')}</Text>
         </View>
       </View>
 
@@ -345,7 +347,7 @@ export default function ProfileScreen() {
             style={{ backgroundColor: cardBg, borderColor: borderColor, borderWidth: 1 }}
           >
             <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: fs(12), letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
-              {section.titleEn}
+              {t(section.titleEn, section.titleTl)}
             </Text>
             {section.items.map((item, iIndex) => (
               <TouchableOpacity
@@ -365,7 +367,7 @@ export default function ProfileScreen() {
                     {language === 'tagalog' ? item.labelTl : item.labelEn}
                   </Text>
                   <Text style={{ color: subTextColor, fontSize: fs(12), marginTop: 2 }}>
-                    {item.value}
+                    {item.value || t('Not provided', 'Hindi pa nailagay')}
                   </Text>
                 </View>
                 <Ionicons name="pencil-outline" size={16} color="#9CA3AF" />
@@ -376,43 +378,24 @@ export default function ProfileScreen() {
 
         
 
-        {/* Stats Card */}
-        <View
-          className="rounded-2xl p-4 mb-6 shadow-sm"
-          style={{ backgroundColor: cardBg, borderColor: borderColor, borderWidth: 1 }}
-        >
-          <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: fs(12), letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
-            {t('Account Statistics', 'Estadistika ng Account')}
-          </Text>
-          <View className="flex-row justify-around">
-            <View className="items-center">
-              <Text style={{ fontWeight: 'bold', fontSize: fs(24), color: '#184B44' }}>156</Text>
-              <Text style={{ color: subTextColor, fontSize: fs(12) }}>
-                {t('Readings', 'Pagbasa')}
-              </Text>
-            </View>
-            <View className="items-center">
-              <Text style={{ fontWeight: 'bold', fontSize: fs(24), color: '#184B44' }}>12</Text>
-              <Text style={{ color: subTextColor, fontSize: fs(12) }}>
-                {t('Recommendations', 'Rekomendasyon')}
-              </Text>
-            </View>
-            <View className="items-center">
-              <Text style={{ fontWeight: 'bold', fontSize: fs(24), color: '#184B44' }}>3</Text>
-              <Text style={{ color: subTextColor, fontSize: fs(12) }}>
-                {t('Zones', 'Sona')}
-              </Text>
-            </View>
-          </View>
+        <View className="rounded-2xl p-4 mb-6" style={{ backgroundColor: cardBg, borderColor, borderWidth: 1 }}>
+          <Text style={{ color: textColor, fontSize: fs(16), fontWeight: '600' }}>{t('Account', 'Account')}</Text>
+          <Text style={{ color: subTextColor, fontSize: fs(14), marginTop: 8 }}>{user.email}</Text>
+          <Text style={{ color: subTextColor, fontSize: fs(14), marginTop: 8 }}>{t('Farm Zones', 'Mga Sona ng Bukid')}: {zones.length}</Text>
+          <TouchableOpacity onPress={() => router.push('/settings')} className="flex-row items-center py-4">
+            <Ionicons name="settings-outline" size={20} color={textColor} />
+            <Text style={{ color: textColor, fontSize: fs(14), marginLeft: 12 }}>{t('App Settings', 'Mga Setting ng App')}</Text>
+            <Ionicons name="chevron-forward" size={18} color={subTextColor} style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
       {/* Edit Field Modal */}
-      <Modal visible={editModalVisible} transparent animationType="fade">
+      <Modal visible={editModalVisible} transparent animationType="fade" onRequestClose={() => setEditModalVisible(false)}>
         <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View className="bg-white rounded-2xl w-full p-6">
+          <View className="rounded-2xl w-full p-6" style={{ backgroundColor: cardBg }}>
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-bold text-gray-800">
+              <Text style={{ color: textColor, fontSize: fs(18), fontWeight: '700' }}>
                 {t('Edit', 'Baguhin')} {editingItem ? (language === 'tagalog' ? editingItem.labelTl : editingItem.labelEn) : ''}
               </Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
@@ -421,7 +404,9 @@ export default function ProfileScreen() {
             </View>
 
             <TextInput
-              className="border border-gray-300 rounded-xl p-3 text-gray-800 text-base mb-4"
+              className="rounded-xl p-3 mb-4"
+              style={{ color: textColor, borderColor, borderWidth: 1, fontSize: fs(16) }}
+              placeholderTextColor={subTextColor}
               value={editValue}
               onChangeText={setEditValue}
               placeholder={t('Enter', 'Ilagay ang') + ' ' + (editingItem ? (language === 'tagalog' ? editingItem.labelTl.toLowerCase() : editingItem.labelEn.toLowerCase()) : '')}
@@ -431,18 +416,20 @@ export default function ProfileScreen() {
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => setEditModalVisible(false)}
-                className="flex-1 bg-gray-100 rounded-xl py-3 items-center"
+                className="flex-1 rounded-xl py-3 items-center"
+                style={{ backgroundColor: colors.cardBgAlt }}
               >
-                <Text className="text-gray-600 font-semibold">
+                <Text style={{ color: textColor, fontWeight: '600' }}>
                   {t('Cancel', 'Kanselahin')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                disabled={saving}
                 onPress={handleSaveEdit}
                 className="flex-1 bg-[#184B44] rounded-xl py-3 items-center"
               >
                 <Text className="text-white font-semibold">
-                  {t('Save', 'I-save')}
+                  {saving ? t('Saving?', 'Nagse-save?') : t('Save', 'I-save')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -451,11 +438,11 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Edit Name Modal */}
-      <Modal visible={editNameVisible} transparent animationType="fade">
+      <Modal visible={editNameVisible} transparent animationType="fade" onRequestClose={() => setEditNameVisible(false)}>
         <View className="flex-1 bg-black/50 justify-center items-center px-6">
-          <View className="bg-white rounded-2xl w-full p-6">
+          <View className="rounded-2xl w-full p-6" style={{ backgroundColor: cardBg }}>
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-lg font-bold text-gray-800">
+              <Text style={{ color: textColor, fontSize: fs(18), fontWeight: '700' }}>
                 {t('Edit Profile', 'Baguhin ang Profile')}
               </Text>
               <TouchableOpacity onPress={() => setEditNameVisible(false)}>
@@ -467,7 +454,9 @@ export default function ProfileScreen() {
               {t('Full Name', 'Buong Pangalan')}
             </Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-3 text-gray-800 text-base mb-4"
+              className="rounded-xl p-3 mb-4"
+              style={{ color: textColor, borderColor, borderWidth: 1, fontSize: fs(16) }}
+              placeholderTextColor={subTextColor}
               value={editNameValue}
               onChangeText={setEditNameValue}
               placeholder={t('Enter your full name', 'Ilagay ang iyong buong pangalan')}
@@ -478,7 +467,9 @@ export default function ProfileScreen() {
               {t('Role / Location', 'Tungkulin / Lokasyon')}
             </Text>
             <TextInput
-              className="border border-gray-300 rounded-xl p-3 text-gray-800 text-base mb-4"
+              className="rounded-xl p-3 mb-4"
+              style={{ color: textColor, borderColor, borderWidth: 1, fontSize: fs(16) }}
+              placeholderTextColor={subTextColor}
               value={editRoleValue}
               onChangeText={setEditRoleValue}
               placeholder={t('e.g. Farmer', 'Hal. Magsasaka') + ' • Nueva Ecija'}
@@ -487,18 +478,20 @@ export default function ProfileScreen() {
             <View className="flex-row gap-3">
               <TouchableOpacity
                 onPress={() => setEditNameVisible(false)}
-                className="flex-1 bg-gray-100 rounded-xl py-3 items-center"
+                className="flex-1 rounded-xl py-3 items-center"
+                style={{ backgroundColor: colors.cardBgAlt }}
               >
-                <Text className="text-gray-600 font-semibold">
+                <Text style={{ color: textColor, fontWeight: '600' }}>
                   {t('Cancel', 'Kanselahin')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                disabled={saving}
                 onPress={handleSaveName}
                 className="flex-1 bg-[#184B44] rounded-xl py-3 items-center"
               >
                 <Text className="text-white font-semibold">
-                  {t('Save', 'I-save')}
+                  {saving ? t('Saving?', 'Nagse-save?') : t('Save', 'I-save')}
                 </Text>
               </TouchableOpacity>
             </View>

@@ -5,8 +5,7 @@ export function useThemeColors() {
 
   return {
     // Base backgrounds
-    // Keep every farmer-facing tab on a calm white canvas. Cards provide the hierarchy.
-    bg: '#FFFFFF',
+    bg: isDarkMode ? '#102116' : '#FFFFFF',
     cardBg: isDarkMode ? '#14251A' : '#FFFFFF',
     cardBgAlt: isDarkMode ? '#1C3323' : '#FFFFFF',
     
@@ -56,4 +55,3 @@ export function useThemeColors() {
     chartDot: isDarkMode ? '#22C55E' : '#0D5E33',
   };
 }
-
