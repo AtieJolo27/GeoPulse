@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "GeoPulse",
-    "slug": "GeoPulse",
+    "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/GeoPulseLogo.png",
@@ -12,16 +12,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/GeoPulseLogo.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/GeoPulseLogo.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.myapp"
     },
     "web": {
-      "output": "static",
+      "output": "server",
       "favicon": "./assets/images/GeoPulseLogo.png",
       "bundler": "metro"
     },
