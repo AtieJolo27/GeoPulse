@@ -1,4 +1,5 @@
 import { validPlantingDate } from '@/lib/plantingDate';
+import { getApiBaseUrl } from '@/lib/apiConfig';
 import { supabase } from '@/lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -17,7 +18,7 @@ interface Zone {
   updated_at: string | null;
 }
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://capstone-eem0.onrender.com';
+const API_BASE_URL = getApiBaseUrl();
 
 interface AppContextType {
   theme: Theme;
@@ -209,8 +210,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refreshZones();
-    fetchActiveZone();
+    void Promise.resolve().then(() => {
+      void refreshZones();
+      void fetchActiveZone();
+    });
   }, [refreshZones, fetchActiveZone]);
 
   // Listen for auth changes + get initial session
@@ -296,4 +299,3 @@ export function useApp() {
 }
 
 export type { FontSize, Zone };
-

@@ -45,7 +45,13 @@ app-example
 /ios
 /android
 
-# Local release verification and Python caches
+# Public build variables must be configured in the EAS environment.
+.env*
+backend/.env*
+backend/**/__pycache__/
+.claude/
+.codex/
+
 dist-apk-check/
 __pycache__/
 *.pyc

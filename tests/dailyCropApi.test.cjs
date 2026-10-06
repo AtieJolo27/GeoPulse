@@ -4,41 +4,28 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
-function endpoint(reply = '1. Inspect leaves.\n2. Check soil.\n3. Remove weeds.') {
-  const calls = [];
-  const context = { exports: {}, Response, process: { env: { GROQ_API_KEY: 'test' } }, console,
-    require: () => ({ Groq: class {
-      chat = { completions: { create: async options => {
-        calls.push(options);
-        return { choices: [{ message: { content: reply } }] };
-      } } };
-    } }),
-  };
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../app/api/groq+api.ts'), 'utf8'), {
+
+function api(base, dev = false) {
+  const context = { exports: {}, URL, __DEV__: dev, process: { env: { EXPO_PUBLIC_API_URL: base } } };
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../lib/apiConfig.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, context);
-  return { post: body => context.exports.POST(new Request('http://localhost/api/groq', { method: 'POST', body: JSON.stringify(body) })), calls };
+  return context.exports;
 }
-test('daily mode uses care instructions and returns Groq content', async () => {
-  const api = endpoint();
-  const response = await api.post({ mode: 'daily-care', prompt: 'Rice, planted 20 days ago. Tagalog.' });
-  assert.equal(response.status, 200);
-  assert.match((await response.json()).data, /Inspect leaves/);
-  assert.match(api.calls[0].messages[0].content, /three short numbered tasks/);
-  assert.match(api.calls[0].messages[1].content, /Tagalog/);
+
+test('standalone APK uses hosted backend without Metro', () => {
+  assert.equal(api().getApiUrl('/api/groq'), 'https://capstone-eem0.onrender.com/api/groq');
 });
-test('existing recommendation format is preserved', async () => {
-  const api = endpoint();
-  await api.post({ prompt: 'Assess crop' });
-  assert.match(api.calls[0].messages[0].content, /Assessment:/);
+test('configured backend is shared and trailing slashes are normalized', () => {
+  const client = api('https://example.com///');
+  assert.equal(client.getApiUrl('api/groq'), 'https://example.com/api/groq');
+  assert.equal(client.getApiUrl('/zones'), 'https://example.com/zones');
 });
-test('invalid input never calls Groq', async () => {
-  const api = endpoint();
-  for (const prompt of [null, {}, '', ' ', 'x'.repeat(12001)]) {
-    assert.equal((await api.post({ prompt })).status, 400);
+test('release builds reject insecure or emulator backend URLs', () => {
+  for (const base of ['http://localhost:8000', 'http://10.0.2.2:8000', 'https://localhost', 'http://example.com']) {
+    assert.throws(() => api(base).getApiBaseUrl(), /public HTTPS/);
   }
-  assert.equal(api.calls.length, 0);
 });
-test('empty model response reports failure', async () => {
-  assert.equal((await endpoint('').post({ mode: 'daily-care', prompt: 'Rice' })).status, 502);
+test('development can explicitly select a local Python backend', () => {
+  assert.equal(api('http://192.168.1.20:8000', true).getApiUrl('/api/groq'), 'http://192.168.1.20:8000/api/groq');
 });

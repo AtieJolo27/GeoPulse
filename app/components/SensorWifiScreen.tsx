@@ -47,6 +47,8 @@ import {
 
 const AP_MODE_IP = "192.168.4.1"; // Fixed IP of the sensor's own provisioning AP
 
+interface WifiStatus { connected: boolean; ssid?: string; ip?: string; failed?: boolean; }
+interface WifiNetwork { ssid: string; auth: string | number; rssi: number; }
 export default function SensorWifiScreen() {
   const colors = useThemeColors();
   const styles = {
@@ -71,14 +73,14 @@ export default function SensorWifiScreen() {
   // client list, or from whatever your FastAPI/Supabase backend logs).
   const [sensorIp, setSensorIp] = useState("");
 
-  const [status, setStatus] = useState(null); // { connected, ssid, ip, failed }
+  const [status, setStatus] = useState<WifiStatus | null>(null); // { connected, ssid, ip, failed }
   const [loadingStatus, setLoadingStatus] = useState(false);
 
   const [mode, setMode] = useState("normal"); // "normal" | "waiting_for_ap" | "provisioning"
 
-  const [networks, setNetworks] = useState([]);
+  const [networks, setNetworks] = useState<WifiNetwork[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState(null);
+  const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
 
@@ -97,7 +99,7 @@ export default function SensorWifiScreen() {
       const res = await fetch(`http://${sensorIp}/wifi/status`, { cache: "no-store" });
       const data = await res.json();
       setStatus(data);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-reach ang sensor",
         "Siguraduhing magkasama kayo sa parehong Wi-Fi network, at tama ang IP address."
@@ -128,7 +130,7 @@ export default function SensorWifiScreen() {
           onPress: async () => {
             try {
               await fetch(`http://${sensorIp}/wifi/reset`, { cache: "no-store" });
-            } catch (err) {
+            } catch {
               // The sensor restarts almost immediately after responding,
               // so a network error here is expected/harmless.
             }
@@ -169,7 +171,7 @@ export default function SensorWifiScreen() {
       const resultsRes = await fetch(`http://${AP_MODE_IP}/scan/results`, { cache: "no-store" });
       const resultsData = await resultsRes.json();
       setNetworks(resultsData.networks || []);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-scan",
         "Siguraduhing naka-connect ang phone mo sa Wi-Fi ng sensor (SOIL-SENSOR-XXXX)."
@@ -203,7 +205,7 @@ export default function SensorWifiScreen() {
       } else {
         Alert.alert("May mali", data.message || "Hindi na-set ang Wi-Fi.");
       }
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-reach ang sensor",
         "Siguraduhing naka-connect ka pa rin sa SOIL-SENSOR-XXXX network."

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Link } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { lightHaptic } from '../../lib/haptics';
 
 interface UrgentCardProps {
@@ -25,7 +25,7 @@ export default function UrgentCard({ field, message, date, severity = 'high' }: 
   const lightBorder = severity === 'high' ? '#FCA5A5' : severity === 'medium' ? '#FDE68A' : '#BBF7D0';
 
   return (
-    <Link href="/(tabs)/crop/reasoning" asChild>
+    <Link href="/(drawer)/(tabs)/crop/reasoning" asChild>
       <TouchableOpacity
         onPress={() => lightHaptic()}
         className="flex-1 flex-row border border-solid rounded-lg m-1"
@@ -61,5 +61,3 @@ export default function UrgentCard({ field, message, date, severity = 'high' }: 
     </Link>
   );
 }
-
-const styles = StyleSheet.create({});

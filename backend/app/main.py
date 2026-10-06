@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.machine_learning.predict_fertilizer import predict_fertilizer
 from app.services.fertilizer_service import save_fertilizer_prediction
 from app.services.zone_recommendations import recommend_for_zone
+from app.services.groq_service import generate_advice, GroqServiceError
+from fastapi.responses import JSONResponse
 
 app = FastAPI()
 
@@ -26,6 +28,19 @@ app.add_middleware(
 @app.get("/")
 def home():
     return {"message": "Soil Health Monitoring API is running"}
+
+
+class AdviceInput(BaseModel):
+    prompt: str
+    mode: str | None = None
+
+
+@app.post('/api/groq')
+def crop_advice(body: AdviceInput):
+    try:
+        return generate_advice(body.prompt, body.mode)
+    except GroqServiceError as exc:
+        return JSONResponse(status_code=exc.status_code, content={'error': str(exc)})
 
 
 class ZoneInput(BaseModel):

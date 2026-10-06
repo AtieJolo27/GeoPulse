@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "GeoPulse",
-    "slug": "GeoPulse",
+    "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/GeoPulseLogo.png",
@@ -47,7 +47,9 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withSensorHttp.js",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

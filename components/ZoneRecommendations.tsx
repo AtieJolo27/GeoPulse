@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '@/lib/apiConfig';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { supabase } from '@/lib/supabaseClient';
@@ -56,7 +57,7 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
       });
       setState({ loading: true });
       try {
-        const base = process.env.EXPO_PUBLIC_API_URL ?? 'https://capstone-eem0.onrender.com';
+        const base = getApiBaseUrl();
         const json = await Promise.race([loadZoneRecommendations(base, zoneId, requestController.signal), deadline]);
         if (json.zone_id !== zoneId) throw new Error('The returned result does not match this zone.');
         if (active && current === request) setState({ loading: false, result: json });
