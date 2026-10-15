@@ -1,4 +1,6 @@
 import math
+from app.services.fertilizer_evidence import attach_fertilizer_evidence
+from app.services.nutrient_recommendations import assess_nutrients, recommend_for_unplanted_soil
 
 
 FIELDS = ('soil_moisture', 'soil_temperature', 'air_temperature', 'humidity',
@@ -33,14 +35,23 @@ def recommend_for_zone(database, zone_id, farm_id, crop_model, fertilizer_model)
         values[field] = value
     crop = crop_model(values)
     planted_crop = zone[0].get('current_crop')
-    crop_context = planted_crop or crop['best_crop']
-    try:
-        fertilizer = fertilizer_model(values, crop_context)
-        fertilizer_error = None
-    except ValueError:
-        fertilizer = None
-        fertilizer_error = 'The fertilizer model cannot evaluate this crop.'
+    crop_context = planted_crop.strip() if isinstance(planted_crop, str) else ''
+    fertilizer = None
+    nutrient_assessment = assess_nutrients(values)
+    fertilizer_error = None
+    if crop_context:
+        try:
+            fertilizer = fertilizer_model(values, crop_context)
+            fertilizer_error = None
+        except ValueError:
+            fertilizer_error = 'The fertilizer model cannot evaluate the currently planted crop.'
+    else:
+        fertilizer = recommend_for_unplanted_soil(nutrient_assessment)
+    if fertilizer is not None:
+        fertilizer = attach_fertilizer_evidence(fertilizer)
     return {'zone_id': zone_id, 'reading': reading, 'crop': crop,
             'fertilizer': fertilizer, 'fertilizer_error': fertilizer_error,
             'fertilizer_crop': crop_context,
-            'fertilizer_crop_source': 'planted' if planted_crop else 'predicted'}
+            'fertilizer_crop_source': 'planted' if crop_context else 'soil_targets',
+            'nutrient_assessment': nutrient_assessment,
+            'nutrient_target_basis': 'provisional_app_reference_bands'}

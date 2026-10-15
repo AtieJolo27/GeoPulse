@@ -54,8 +54,8 @@ export async function loadZoneRecommendations(baseUrl: string, zoneId: number, s
   if (!Array.isArray(json.crop?.recommendations)) throw new Error('The prediction service returned an unexpected crop result.');
   return {
     zone_id: zoneId, reading, crop: json.crop,
-    fertilizer: Array.isArray(json.fertilizer?.recommendations) ? json.fertilizer : null,
-    fertilizer_crop: json.crop.best_crop,
-    fertilizer_crop_source: 'legacy-predicted',
+    fertilizer: null,
+    fertilizer_error: 'Update the recommendation server to support fertilizer recommendations for the currently planted crop.',
+    fertilizer_crop_source: 'unsupported',
   };
 }

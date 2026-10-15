@@ -6,8 +6,9 @@ import { getCropImage } from '@/app/lib/cropImages';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
+import { classifySoilValue, SoilLevel, SoilBand, getSoilTypeRanges, SOIL_TYPE_OPTIONS } from '@/lib/soilTypeRanges';
 import { validPlantingDate } from '@/lib/plantingDate';
-import { computeSoilHealthScore, SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
+import { computeSoilHealthScore, parseSensorNumber, SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -25,16 +26,16 @@ import {
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import * as Progress from 'react-native-progress';
 import { CACHE_KEYS, getCache, setCache } from '../../../../lib/cache';
-import { exportSensorReadingsPdf } from '../../../../lib/exportSensorReadings';
+import { exportDashboardReport } from '@/lib/exportDashboardReport';
 import { lightHaptic, mediumHaptic, warningHaptic } from '../../../../lib/haptics';
 import { supabase } from '../../../../lib/supabaseClient';
 import Urgent_Card from '../../../components/UrgentCard';
 
-const OPTIMAL_RANGES = {
+const DEFAULT_RANGES = {
   soil_moisture: { min: 70, max: 75, unit: '%' },
   soil_temperature: { min: 20, max: 30, unit: '°C' },
   ...SENSOR_REFERENCE_RANGES,
-} as const;
+};
 
 interface SensorReading {
   zone_id?: number | string | null;
@@ -71,94 +72,20 @@ function getTimeAgo(date: Date, now: Date): { en: string; tl: string } {
   return { en: `${diffDays} days ago`, tl: `${diffDays} araw ang nakalipas` };
 }
 
-function computeAlerts(record: SensorReading | null): SensorAlert[] {
+function computeAlerts(record: SensorReading | null, ranges: Record<keyof typeof DEFAULT_RANGES, SoilBand>): SensorAlert[] {
   if (!record) return [];
-
-  const alerts: SensorAlert[] = [];
-  const now = new Date();
-  const recordDate = record.created_at ? new Date(record.created_at) : now;
-  const timeAgo = getTimeAgo(recordDate, now);
-
-  const temp = parseFloat(String(record.soil_temperature));
-  if (!isNaN(temp)) {
-    if (temp > OPTIMAL_RANGES.soil_temperature.max + 5) {
-      alerts.push({
-        field: 'Soil Temperature',
-        fieldTl: 'Temperatura ng Lupa',
-        message: `Temperature too high (${temp}°C), exceeds optimal range`,
-        messageTl: `Masyadong mataas ang temperatura (${temp}°C), lampas sa optimal na antas`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'high',
-      });
-    } else if (temp < OPTIMAL_RANGES.soil_temperature.min - 5) {
-      alerts.push({
-        field: 'Soil Temperature',
-        fieldTl: 'Temperatura ng Lupa',
-        message: `Temperature too low (${temp}°C), below optimal range`,
-        messageTl: `Masyadong mababa ang temperatura (${temp}°C), mababa sa optimal na antas`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'medium',
-      });
-    }
-  }
-
-  const moisture = parseFloat(String(record.soil_moisture));
-  if (!isNaN(moisture)) {
-    if (moisture < OPTIMAL_RANGES.soil_moisture.min - 10) {
-      alerts.push({
-        field: 'Soil Moisture',
-        fieldTl: 'Halumigmig ng Lupa',
-        message: `Moisture level too low (${moisture}%)`,
-        messageTl: `Masyadong mababa ang antas ng kahalumigmigan (${moisture}%)`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'high',
-      });
-    } else if (moisture > OPTIMAL_RANGES.soil_moisture.max + 10) {
-      alerts.push({
-        field: 'Soil Moisture',
-        fieldTl: 'Halumigmig ng Lupa',
-        message: `Moisture level too high (${moisture}%) — risk of waterlogging`,
-        messageTl: `Masyadong mataas ang antas ng kahalumigmigan (${moisture}%) — peligro ng pagbaha`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'medium',
-      });
-    }
-  }
-
-  const ph = parseFloat(String(record.ph));
-  if (!isNaN(ph)) {
-    if (ph < OPTIMAL_RANGES.ph.min - 0.5) {
-      alerts.push({
-        field: 'Soil pH',
-        fieldTl: 'Antas ng pH',
-        message: `Soil too acidic (pH ${ph}), below optimal range`,
-        messageTl: `Masyadong acidic ang lupa (pH ${ph}), mababa sa optimal na antas`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'high',
-      });
-    } else if (ph > OPTIMAL_RANGES.ph.max + 0.5) {
-      alerts.push({
-        field: 'Soil pH',
-        fieldTl: 'Antas ng pH',
-        message: `Soil too alkaline (pH ${ph}), above optimal range`,
-        messageTl: `Masyadong alkaline ang lupa (pH ${ph}), mataas sa optimal na antas`,
-        date: timeAgo.en,
-        dateTl: timeAgo.tl,
-        severity: 'medium',
-      });
-    }
-  }
-
-  return alerts;
+  const date = getTimeAgo(record.created_at ? new Date(record.created_at) : new Date(), new Date());
+  return (['nitrogen', 'phosphorus', 'potassium', 'soil_moisture', 'soil_temperature', 'ph'] as const).flatMap(key => {
+    const result = classifySoilValue(record[key], ranges[key]);
+    if (result.level !== 'low' && result.level !== 'high') return [];
+    const message = `${key.replace(/_/g, ' ')}: ${record[key]} ${ranges[key].unit} - ${result.level}${result.risk ? '. ' + result.risk : ''}.`;
+    return [{ field: key.replace(/_/g, ' '), fieldTl: key.replace(/_/g, ' '), message, messageTl: message,
+      date: date.en, dateTl: date.tl, severity: result.risk ? 'high' as const : 'medium' as const }];
+  });
 }
 
-function computeHealthScore(record: SensorReading | null) {
-  const result = computeSoilHealthScore(record ?? {});
+function computeHealthScore(record: SensorReading | null, ranges: Record<keyof typeof DEFAULT_RANGES, SoilBand>) {
+  const result = computeSoilHealthScore(record ?? {}, ranges);
   return {
     score: result.overall ?? 0,
     available: result.overall !== null,
@@ -210,15 +137,7 @@ export default function HomeScreen() {
     'papaya', 'garlic', 'onion', 'tobacco', 'rubber',
   ];
 
-  const SOIL_TYPES = [
-    'Clay',
-    'Clay Loam',
-    'Loam',
-    'Sandy',
-    'Sandy Loam',
-    'Silty Clay Loam',
-    'Volcanic Loam',
-  ];
+  const SOIL_TYPES = SOIL_TYPE_OPTIONS;
   const [isExporting, setIsExporting] = useState(false);
   const readingRequest = useRef(0);
 
@@ -300,18 +219,6 @@ export default function HomeScreen() {
     fetchData();
   }, [fetchData]);
 
-  const handleExport = useCallback(async () => {
-    setIsExporting(true);
-    try {
-      await exportSensorReadingsPdf(data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to export sensor readings.';
-      Alert.alert('Export failed', message);
-    } finally {
-      setIsExporting(false);
-    }
-  }, [data]);
-
   const latestRecord = useMemo(() => {
     if (activeZoneId === null) return null;
     // Data is ordered newest first. Never attribute unassigned readings to a zone.
@@ -330,8 +237,25 @@ export default function HomeScreen() {
     return isNaN(numValue) ? 0 : Math.min(numValue / maxValue, 1);
   }, []);
 
-  const alerts = useMemo(() => computeAlerts(latestRecord), [latestRecord]);
-  const healthInfo = useMemo(() => computeHealthScore(latestRecord), [latestRecord]);
+  const zoneObj = zones.find(z => z.id === activeZoneId);
+  const soilRanges = getSoilTypeRanges(zoneObj?.soil_type);
+  const OPTIMAL_RANGES: Record<keyof typeof DEFAULT_RANGES, SoilBand> = useMemo(() => ({ ...DEFAULT_RANGES, ...getSoilTypeRanges(zoneObj?.soil_type) }), [zoneObj?.soil_type]);
+  const nutrientLevel = (key: keyof typeof OPTIMAL_RANGES): SoilLevel => classifySoilValue(latestRecord?.[key], OPTIMAL_RANGES[key]).level;
+  const nutrientRisk = (key: keyof typeof OPTIMAL_RANGES) => classifySoilValue(latestRecord?.[key], OPTIMAL_RANGES[key]).risk;
+  const alerts = useMemo(() => computeAlerts(latestRecord, OPTIMAL_RANGES), [latestRecord, OPTIMAL_RANGES]);
+  const healthInfo = useMemo(() => computeHealthScore(latestRecord, OPTIMAL_RANGES), [latestRecord, OPTIMAL_RANGES]);
+
+  const handleExport = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      if (!zoneObj) throw new Error('Select a zone before exporting a report.');
+      if (!latestRecord) throw new Error('No current sensor reading is displayed for this zone. Refresh the dashboard first.');
+      await exportDashboardReport({ zone: zoneObj, reading: latestRecord, alerts, dataWarning: error });
+    } catch (err) {
+      Alert.alert(t('Export failed', 'Hindi na-export'), err instanceof Error ? err.message : 'Unable to export dashboard report.');
+    } finally { setIsExporting(false); }
+  }, [isExporting, zoneObj, latestRecord, alerts, error, t]);
 
   if (loading && data.length === 0) {
     return <DashboardSkeleton />;
@@ -360,7 +284,6 @@ export default function HomeScreen() {
     );
   }
 
-  const zoneObj = zones.find(z => z.id === activeZoneId);
   const zoneLabelEn = zoneObj?.name_en ?? 'Zone';
   const zoneLabelTl = zoneObj?.name_tl ?? 'Sona';
   const totalAlerts = alerts.length;
@@ -917,14 +840,15 @@ export default function HomeScreen() {
 
         {/* Live Sensor Readings */}
         <View className="mt-6 flex-row items-end justify-between">
-          <View className="flex-1"><SectionHeader title={t('Soil conditions', 'Kondisyon ng lupa')} subtitle={t('Latest sensor readings', 'Pinakabagong sensor readings')} /></View>
+          <View className="flex-1"><SectionHeader title={t('Soil conditions', 'Kondisyon ng lupa')} subtitle={soilRanges ? `${zoneObj?.soil_type} - ${t('soil reference ranges', 'batayang saklaw ng lupa')}` : t('No soil-specific ranges available; showing provisional defaults.', 'Walang saklaw para sa uri ng lupa; pansamantalang default ang gamit.')} /></View>
           <TouchableOpacity
             onPress={handleExport}
-            disabled={isExporting}
+            disabled={isExporting || activeZoneId === null}
             accessibilityRole="button"
-            accessibilityLabel={t('Export sensor readings as PDF', 'I-export ang mga basa ng sensor bilang PDF')}
+            accessibilityLabel={t('Export the current dashboard soil report as PDF', 'I-export ang kasalukuyang ulat ng lupa sa dashboard bilang PDF')}
+            accessibilityState={{ disabled: isExporting || activeZoneId === null, busy: isExporting }}
             className="mb-3 flex-row items-center rounded-xl px-3 py-2"
-            style={{ backgroundColor: colors.cardBgAlt, opacity: isExporting ? 0.55 : 1 }}
+            style={{ backgroundColor: colors.cardBgAlt, opacity: isExporting || activeZoneId === null ? 0.55 : 1 }}
           >
             <Ionicons name="download-outline" size={18} color={colors.primaryDark} />
             <Text className="ml-1 font-bold" style={{ color: colors.primaryDark }}>
@@ -932,14 +856,17 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        <Text style={{ color: colors.mutedText, fontSize: fs(11), marginBottom: 10 }}>{t('Configured thresholds assume nitrate-N, Mehlich-3 phosphorus and calibrated VWC moisture. K bands use soil texture as a CEC proxy; CEC has not been measured.', 'Ang batayan ay para sa nitrate-N, Mehlich-3 phosphorus at calibrated VWC. Ginagamit ang uri ng lupa bilang batayan ng CEC; hindi pa nasusukat ang CEC.')}</Text>
         <View className="flex-row flex-wrap justify-between gap-y-3 py-2">
           <SensorCard
             colors={colors}
             fontScale={fontScale}
             icon="water-outline"
-            label={t('Soil Moisture', 'Halumigmig ng Lupa')}
+            label={t('Soil Moisture (VWC)', 'Halumigmig ng Lupa (VWC)')}
             value={`${getSensorValue('soil_moisture', '--')}%`}
             opt={`${OPTIMAL_RANGES.soil_moisture.min}-${OPTIMAL_RANGES.soil_moisture.max}%`}
+            nutrientStatus={nutrientLevel('soil_moisture')}
+            nutrientWarning={nutrientRisk('soil_moisture')}
             progress={getProgressValue(getSensorValue('soil_moisture', '0'), 100)}
           />
           <SensorCard
@@ -949,6 +876,8 @@ export default function HomeScreen() {
             label={t('Soil Temperature', 'Temperatura ng Lupa')}
             value={`${getSensorValue('soil_temperature', '--')}°C`}
             opt={`${OPTIMAL_RANGES.soil_temperature.min}-${OPTIMAL_RANGES.soil_temperature.max}°C`}
+            nutrientStatus={nutrientLevel('soil_temperature')}
+            nutrientWarning={nutrientRisk('soil_temperature')}
             progress={getProgressValue(getSensorValue('soil_temperature', '0'), 50)}
           />
           <SensorCard
@@ -958,6 +887,8 @@ export default function HomeScreen() {
             label={t('Soil pH', 'Antas ng pH')}
             value={`${getSensorValue('ph', '--')}`}
             opt={`${OPTIMAL_RANGES.ph.min}-${OPTIMAL_RANGES.ph.max}`}
+            nutrientStatus={nutrientLevel('ph')}
+            nutrientWarning={nutrientRisk('ph')}
             progress={getProgressValue(getSensorValue('ph', '0'), 14)}
           />
           <SensorCard
@@ -967,6 +898,8 @@ export default function HomeScreen() {
             label={t('Nitrogen', 'Nitrogen')}
             value={`${getSensorValue('nitrogen', '--')} ppm`}
             opt={`${OPTIMAL_RANGES.nitrogen.min}-${OPTIMAL_RANGES.nitrogen.max} ppm`}
+            nutrientStatus={nutrientLevel('nitrogen')}
+            nutrientWarning={nutrientRisk('nitrogen')}
             progress={getProgressValue(getSensorValue('nitrogen', '0'), 100)}
           />
           <SensorCard
@@ -976,6 +909,8 @@ export default function HomeScreen() {
             label={t('Phosphorus', 'Phosphorus')}
             value={`${getSensorValue('phosphorus', '--')} ppm`}
             opt={`${OPTIMAL_RANGES.phosphorus.min}-${OPTIMAL_RANGES.phosphorus.max} ppm`}
+            nutrientStatus={nutrientLevel('phosphorus')}
+            nutrientWarning={nutrientRisk('phosphorus')}
             progress={getProgressValue(getSensorValue('phosphorus', '0'), 100)}
           />
           <SensorCard
@@ -985,6 +920,8 @@ export default function HomeScreen() {
             label={t('Potassium', 'Potassium')}
             value={`${getSensorValue('potassium', '--')} ppm`}
             opt={`${OPTIMAL_RANGES.potassium.min}-${OPTIMAL_RANGES.potassium.max} ppm`}
+            nutrientStatus={nutrientLevel('potassium')}
+            nutrientWarning={nutrientRisk('potassium')}
             progress={getProgressValue(getSensorValue('potassium', '0'), 300)}
           />
         </View>
@@ -1038,11 +975,12 @@ export default function HomeScreen() {
             justifyContent: 'center',
           }}
         >
-          <View
+          <ScrollView
+            contentContainerStyle={{ padding: 24 }}
             style={{
+              maxHeight: '85%',
               backgroundColor: colors.cardBg,
               borderRadius: 20,
-              padding: 24,
               shadowColor: colors.primary,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.15,
@@ -1113,13 +1051,16 @@ export default function HomeScreen() {
                 )}
               </Text>
               <Text className="text-center text-xs mt-2" style={{ color: colors.greenText }}>
-                {t('Score based on N, P, K, pH, temperature & humidity', 'Skor batay sa N, P, K, pH, temperatura at halumigmig')}
+                {t('How it is calculated: nitrogen, phosphorus, potassium, soil pH, air temperature and humidity each receive 0–100 points. A reading inside its reference band receives 100. Outside the band, points decrease linearly with distance, down to 0. The overall index is the rounded average of all six scores, with equal weight. All six readings must be valid.', 'Paraan ng pagkukuwenta: tig-0–100 puntos ang nitrogen, posporus, potasyo, pH ng lupa, temperatura ng hangin at halumigmig. May 100 puntos kapag nasa saklaw. Sa labas nito, bumababa ang puntos ayon sa layo hanggang 0. Ang index ay ang ni-round na average ng anim na iskor na may pantay na timbang. Kailangang wasto ang lahat ng anim na datos.')}
+              </Text>
+              <Text className="text-center text-xs mt-2" style={{ color: colors.subText }}>
+                {t('The falloff distance is half the reference-band width × 1.5 for nutrients and air temperature, × 2 for pH, and × 1.3 for humidity. Example: five scores of 100 and one of 40 give an overall index of 90. Check each factor because the average can hide a problem. This is a snapshot of measured conditions; it does not measure organic matter, soil biology, structure or harvest success.', 'Ang layo bago maging 0 ay kalahati ng lapad ng saklaw × 1.5 para sa sustansiya at temperatura ng hangin, × 2 para sa pH, at × 1.3 para sa halumigmig. Halimbawa: limang 100 at isang 40 ay may average na 90. Suriin ang bawat salik dahil maaaring matakpan ng average ang problema. Hindi nito sinusukat ang organikong materyal, buhay at istruktura ng lupa, o tagumpay ng ani.')}
               </Text>
               <Text className="text-center text-xs" style={{ color: colors.greenText }}>
                 {t('Provisional reference bands; crop and sensor calibration required', 'Pansamantalang saklaw; kailangan ng batayan para sa pananim at sensor')}
               </Text>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -1460,6 +1401,8 @@ function SensorCard({
   value,
   opt,
   progress,
+  nutrientStatus,
+  nutrientWarning,
 }: {
   colors: ReturnType<typeof useThemeColors>;
   fontScale: number;
@@ -1468,7 +1411,13 @@ function SensorCard({
   value: string;
   opt: string;
   progress: number;
+  nutrientStatus?: SoilLevel;
+  nutrientWarning?: string;
 }) {
+  const { t } = useApp();
+  const statusLabel = nutrientStatus === 'low' ? t('Low', 'Mababa') : nutrientStatus === 'medium' ? t('Medium (Optimum)', 'Katamtaman (Optimum)') : nutrientStatus === 'high' ? t('High', 'Mataas') : nutrientStatus === 'below_optimum' ? t('Below optimum', 'Mas mababa sa optimum') : nutrientStatus === 'above_optimum' ? t('Above optimum', 'Mas mataas sa optimum') : t('Unavailable', 'Walang datos');
+  const statusColor = nutrientStatus === 'medium' ? colors.greenText : nutrientStatus === 'low' ? (colors.isDarkMode ? '#FCD34D' : '#92400E') : nutrientStatus === 'high' ? (colors.isDarkMode ? '#FCA5A5' : '#B91C1C') : colors.mutedText;
+  const statusBg = nutrientStatus === 'medium' ? colors.cardBgAlt : nutrientStatus === 'low' ? (colors.isDarkMode ? '#422F13' : '#FEF3C7') : nutrientStatus === 'high' ? (colors.isDarkMode ? '#451A1A' : '#FEE2E2') : colors.cardBgAlt;
   const sf = (size: number) => Math.round(size * fontScale);
   return (
     <View
@@ -1485,7 +1434,7 @@ function SensorCard({
         elevation: 2,
       }}
       accessibilityRole="text"
-      accessibilityLabel={`${label}: ${value}, provisional reference: ${opt}`}
+      accessibilityLabel={`${label}: ${value}${nutrientStatus ? `, ${statusLabel}` : ''}, provisional reference: ${opt}`}
     >
       <View className="flex flex-col items-center justify-center">
         <View className="h-10 w-10 rounded-full items-center justify-center mb-2" style={{ backgroundColor: colors.cardBgAlt }}>
@@ -1504,7 +1453,14 @@ function SensorCard({
           {value}
         </Text>
       </View>
-      <View className="mt-1">
+      {nutrientStatus ? <View style={{ marginTop: 4, gap: 8 }}>
+        <View style={{ alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: statusBg }}>
+          <Text style={{ fontSize: sf(13), fontWeight: '800', color: statusColor }}>{statusLabel}</Text>
+        </View>
+        <Text style={{ fontSize: sf(11), color: colors.subText }}>{t('Reference', 'Batayan')}: {opt}</Text>
+        <Text style={{ fontSize: sf(10), color: colors.mutedText }}>{nutrientStatus === 'medium' ? t('Within soil range', 'Nasa saklaw ng lupa') : nutrientStatus === 'low' ? t('Below soil range', 'Mababa sa saklaw ng lupa') : nutrientStatus === 'high' ? t('Above soil range', 'Mataas sa saklaw ng lupa') : nutrientStatus === 'below_optimum' || nutrientStatus === 'above_optimum' ? t('Between optimum and alert threshold', 'Sa pagitan ng optimum at alert threshold') : t('Waiting for valid reading', 'Naghihintay ng wastong datos')}</Text>
+        {nutrientWarning && <Text style={{ color: statusColor, fontWeight: '700', fontSize: sf(11) }}>{nutrientWarning}</Text>}
+      </View> : <View className="mt-1">
         <View className="flex-row items-center justify-between">
           <Text style={{ fontSize: sf(11), fontWeight: '700', color: colors.greenText }}>Ideal: {opt}</Text>
           <Text style={{ fontSize: sf(10), fontWeight: '700', color: colors.subText }}>{Math.round(progress * 100)}%</Text>
@@ -1519,7 +1475,7 @@ function SensorCard({
           borderRadius={4}
           style={{ marginTop: 6 }}
         />
-      </View>
+      </View>}
     </View>
   );
 }

@@ -53,6 +53,9 @@ class ZoneRecommendationsTest(unittest.TestCase):
         self.assertEqual(result['reading']['id'], 2)
         self.assertEqual(self.crop.call_args.args[0]['nitrogen'], 12)
         self.assertEqual(self.fertilizer.call_args.args[1], 'rice')
+        self.assertEqual(self.fertilizer.call_args.args[0]['nitrogen'], 12)
+        self.assertEqual(self.fertilizer.call_args.args[0]['phosphorus'], 5)
+        self.assertEqual(self.fertilizer.call_args.args[0]['potassium'], 5)
 
     def test_missing_zone_readings_never_fall_back(self):
         result = self.run_prediction([{**self.reading, 'zone_id': 2}])
@@ -64,11 +67,13 @@ class ZoneRecommendationsTest(unittest.TestCase):
             self.run_prediction([self.reading, {**self.reading, 'id': 2, 'ph': None}])
         self.crop.assert_not_called()
 
-    def test_no_planted_crop_labels_predicted_context(self):
+    def test_no_planted_crop_recommends_for_soil_deficits(self):
         self.zone['current_crop'] = None
         result = self.run_prediction([self.reading])
-        self.assertEqual(result['fertilizer_crop_source'], 'predicted')
-        self.assertEqual(self.fertilizer.call_args.args[1], 'corn')
+        self.assertEqual(result['fertilizer_crop_source'], 'soil_targets')
+        self.assertEqual(len(result['fertilizer']['recommendations']), 3)
+        self.assertIsNone(result['fertilizer_error'])
+        self.fertilizer.assert_not_called()
 
     def test_unsupported_planted_crop_keeps_crop_result(self):
         self.fertilizer.side_effect = ValueError('unknown label')
@@ -76,6 +81,42 @@ class ZoneRecommendationsTest(unittest.TestCase):
         self.assertIsNotNone(result['crop'])
         self.assertIsNone(result['fertilizer'])
         self.assertTrue(result['fertilizer_error'])
+
+    def test_changed_crop_is_used_on_next_request(self):
+        self.run_prediction([self.reading])
+        self.zone['current_crop'] = 'banana'
+        result = self.run_prediction([self.reading])
+        self.assertEqual(self.fertilizer.call_args.args[1], 'banana')
+        self.assertEqual(result['fertilizer_crop'], 'banana')
+
+    def test_blank_crop_does_not_use_predicted_crop(self):
+        self.zone['current_crop'] = '   '
+        result = self.run_prediction([self.reading])
+        self.assertEqual(result['fertilizer']['basis'], 'nutrient_deficit')
+        self.fertilizer.assert_not_called()
+
+    def test_no_fertilizer_when_nutrients_within_bands(self):
+        self.zone['current_crop'] = None
+        result = self.run_prediction([{**self.reading, 'nitrogen': 20, 'phosphorus': 80, 'potassium': 55}])
+        self.assertEqual(result['fertilizer']['recommendations'], [])
+        self.assertTrue(all(item['status'] == 'within' for item in result['nutrient_assessment']))
+
+    def test_only_low_nutrient_gets_fertilizer(self):
+        self.zone['current_crop'] = None
+        result = self.run_prediction([{**self.reading, 'nitrogen': 101, 'phosphorus': 15, 'potassium': 0}])
+        recommendations = result['fertilizer']['recommendations']
+        self.assertEqual(len(recommendations), 1)
+        self.assertEqual(recommendations[0]['nutrient'], 'potassium')
+        self.assertEqual(recommendations[0]['gap_ppm'], 15)
+        self.assertEqual(result['nutrient_assessment'][0]['status'], 'high')
+
+    def test_updated_reading_changes_unplanted_recommendation(self):
+        self.zone['current_crop'] = None
+        first = self.run_prediction([self.reading])
+        second = self.run_prediction([self.reading, {**self.reading, 'id': 2, 'nitrogen': 50, 'phosphorus': 30, 'potassium': 30}])
+        self.assertEqual(len(first['fertilizer']['recommendations']), 3)
+        self.assertEqual(second['fertilizer']['recommendations'], [])
+        self.assertEqual(second['reading']['id'], 2)
 
     def test_other_farm_cannot_be_requested(self):
         self.zone['farm_id'] = 8

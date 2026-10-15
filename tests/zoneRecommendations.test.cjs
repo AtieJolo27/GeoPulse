@@ -25,14 +25,16 @@ function setup(reading, status = 404) {
 }
 const reading = { id: 12, zone_id: 7, soil_moisture: 30, soil_temperature: 25, air_temperature: 28, humidity: 60, ph: 6, nitrogen: 10, phosphorus: 20, potassium: 30 };
 
-test('404 fallback submits only the selected zone measurements and labels predicted crop', async () => {
+test('404 fallback retains zone crop options but excludes predicted-crop fertilizer', async () => {
   const { load, requests, filters } = setup(reading);
   const result = await load('https://example.test/', 7, new AbortController().signal);
   assert.deepEqual(filters, [['zone_id', 7]]);
   assert.equal(requests[1].url, 'https://example.test/predict');
   assert.equal(JSON.parse(requests[1].options.body).nitrogen, 10);
   assert.equal(result.reading.id, 12);
-  assert.equal(result.fertilizer_crop_source, 'legacy-predicted');
+  assert.equal(result.fertilizer_crop_source, 'unsupported');
+  assert.equal(result.fertilizer, null);
+  assert.match(result.fertilizer_error, /currently planted crop/);
 });
 test('empty zone never predicts another zone data', async () => {
   const { load, requests } = setup(null);

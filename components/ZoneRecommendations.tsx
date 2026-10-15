@@ -5,13 +5,16 @@ import { loadZoneRecommendations } from '@/lib/zoneRecommendations';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import RecommendationCard from './RecommendationCard';
+import GroqFertilizerRecommendations from './GroqFertilizerRecommendations';
+import FertilizerEvidence, { FertilizerSource } from './FertilizerEvidence';
 import { Ionicons } from '@expo/vector-icons';
 
 type Result = {
   zone_id: number;
   reading: { id: number | string; created_at: string } | null;
   crop: { recommendations: { crop: string; confidence: number }[] } | null;
-  fertilizer: { recommendations: { fertilizer: string; confidence: number }[] } | null;
+  fertilizer: { basis?: string; recommendations: { fertilizer: string; confidence?: number; nutrient?: string; gap_ppm?: number; in_dataset?: boolean; sources?: FertilizerSource[] }[] } | null;
+  nutrient_assessment?: { nutrient: string; current_ppm: number; min_ppm: number; max_ppm: number; gap_ppm: number; status: 'low' | 'high' | 'within' }[];
   fertilizer_error?: string;
   fertilizer_crop?: string;
   fertilizer_crop_source?: string;
@@ -25,12 +28,13 @@ export default function ZoneRecommendations({ kind }: { kind: 'crop' | 'fertiliz
   return <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 110 }}>
     <Text style={{ fontSize: 24 * fontScale, fontWeight: '800', color: colors.text }}>{kind === 'crop' ? t('Crop options to evaluate', 'Mga pananim na maaaring suriin') : t('Fertilizer options to review', 'Mga patabang maaaring suriin')}</Text>
     {zone && <Text style={{ marginTop: 8, marginBottom: 16, fontSize: 14 * fontScale, color: colors.subText }}>{t(zone.name_en, zone.name_tl)}</Text>}
-    {zone ? <ZoneResults key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} kind={kind} /> : <Text style={{ marginTop: 16, color: colors.subText }}>{t('Select a zone on the dashboard to see recommendations.', 'Pumili ng sona sa dashboard para makita ang mga mungkahi.')}</Text>}
+    {zone ? kind === 'fertilizer' ? <GroqFertilizerRecommendations key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} crop={zone.current_crop} /> : <ZoneResults key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} kind={kind} /> : <Text style={{ marginTop: 16, color: colors.subText }}>{t('Select a zone on the dashboard to see recommendations.', 'Pumili ng sona sa dashboard para makita ang mga mungkahi.')}</Text>}
   </ScrollView>;
 }
 
 function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertilizer' }) {
-  const { t, fontScale } = useApp();
+  const { t, fontScale, zones } = useApp();
+  const plantedCrop = zones.find(zone => zone.id === zoneId)?.current_crop?.trim();
   const colors = useThemeColors();
   const [attempt, setAttempt] = useState(0);
   const [newReadingAvailable, setNewReadingAvailable] = useState(false);
@@ -76,8 +80,11 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
   }, [zoneId, kind, attempt]);
   const result = state.result;
   const rows = kind === 'crop'
-    ? result?.crop?.recommendations.map(row => ({ name: row.crop, score: row.confidence })) ?? []
-    : result?.fertilizer?.recommendations.map(row => ({ name: row.fertilizer, score: row.confidence })) ?? [];
+    ? result?.crop?.recommendations.map(row => ({ name: row.crop, score: row.confidence, in_dataset: undefined as boolean | undefined, sources: [] as FertilizerSource[] })) ?? []
+    : result?.fertilizer_crop_source === 'planted' && result.fertilizer_crop === plantedCrop
+      ? result.fertilizer?.recommendations.map(row => ({ name: row.fertilizer, score: row.confidence ?? NaN, in_dataset: row.in_dataset, sources: row.sources })) ?? []
+      : [];
+  const soilTargetMode = kind === 'fertilizer' && !plantedCrop && result?.fertilizer_crop_source === 'soil_targets' && result.fertilizer?.basis === 'nutrient_deficit';
   const ranked = rows.filter(row => typeof row.name === 'string' && Number.isFinite(row.score) && row.score > 0 && row.score <= 100).sort((a, b) => b.score - a.score);
   return <View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
@@ -104,10 +111,28 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
       <Text accessibilityRole={state.error ? 'alert' : 'text'} style={{ color: colors.subText, fontSize: 13 * fontScale, lineHeight: 20 * fontScale, textAlign: 'center' }}>{state.loading ? t('Preparing suggestions from this zone\'s latest readings...', 'Inihahanda ang mga mungkahi mula sa pinakahuling datos ng sonang ito...') : state.error ?? t('No sensor readings are linked to this zone yet.', 'Wala pang datos ng sensor na nakaugnay sa sonang ito.')}</Text>
     </View> : <>
       <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginBottom: 12 }}>{t('Based on this zone\'s latest recorded reading', 'Batay sa pinakahuling datos ng sonang ito')}: {new Date(result.reading.created_at).toLocaleString()}</Text>
-      <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginBottom: 16 }}>{t('Model scores rank options; they are not verified suitability ratings or chances of success.', 'Iniraranggo ng iskor ang mga opsyon; hindi ito napatunayang kaangkupan o tsansa ng tagumpay.')}</Text>
-      {kind === 'fertilizer' && <Text style={{ color: colors.subText, marginBottom: 16 }}>{result.fertilizer_crop_source === 'planted' ? t('Planted crop', 'Itinanim na pananim') : result.fertilizer_crop_source === 'legacy-predicted' ? t('This server evaluates fertilizer for the model-predicted crop, which may differ from your planted crop', 'Sinusuri ng server ang pataba para sa hinulaang pananim, na maaaring iba sa itinanim mo') : t('No planted crop recorded. Using model-predicted crop', 'Walang naitalang pananim. Gamit ang hinulaang pananim')}: {result.fertilizer_crop?.replace(/_/g, ' ')}</Text>}
-      {ranked.map((row, index) => <RecommendationCard key={row.name} name={row.name} score={row.score} kind={kind} featured={index === 0} fontScale={fontScale} zoneId={zoneId} readingId={result.reading!.id} />)}
-      {!ranked.length && <Text style={{ color: colors.subText }}>{result.fertilizer_error ?? t('No valid model suggestions available.', 'Walang wastong mungkahi ang modelo.')}</Text>}
+      {!soilTargetMode && <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginBottom: 16 }}>{t('Model scores rank options; they are not verified suitability ratings or chances of success.', 'Iniraranggo ng iskor ang mga opsyon; hindi ito napatunayang kaangkupan o tsansa ng tagumpay.')}</Text>}
+      {kind === 'fertilizer' && <Text style={{ color: colors.subText, marginBottom: 16 }}>{plantedCrop ? `${t('Currently planted crop', 'Kasalukuyang pananim')}: ${plantedCrop.replace(/_/g, ' ')}` : t('No crop planted: balance nutrients toward the app reference ranges.', 'Walang nakatanim: itugma ang sustansiya sa mga batayang saklaw ng app.')}</Text>}
+      {kind === 'fertilizer' && result.nutrient_assessment && <View style={{ marginBottom: 16, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, gap: 10 }}>
+        <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 * fontScale }}>{t('Current soil nutrients', 'Kasalukuyang sustansiya ng lupa')}</Text>
+        {result.nutrient_assessment.map(item => <View key={item.nutrient}>
+          <Text style={{ color: colors.text, fontSize: 13 * fontScale, textTransform: 'capitalize' }}>{item.nutrient}: {item.current_ppm} ppm</Text>
+          <Text style={{ color: colors.subText, fontSize: 12 * fontScale }}>{t('Reference', 'Batayan')}: {item.min_ppm}-{item.max_ppm} ppm | {item.status === 'low' ? `${t('Below minimum by', 'Kulang ng')} ${item.gap_ppm} ppm` : item.status === 'high' ? t('Above range; avoid adding this nutrient', 'Lampas sa saklaw; iwasang dagdagan ito') : t('Within range', 'Nasa saklaw')}</Text>
+        </View>)}
+        <Text style={{ color: colors.subText, fontSize: 12 * fontScale, lineHeight: 18 * fontScale }}>{t('These are provisional app targets, not universal ideal ppm values. ppm means mg/kg on a soil mass basis; confirm sensor calibration and a soil test before application. A ppm gap is not a fertilizer dose.', 'Pansamantalang batayan ng app ang mga ito, hindi pangkalahatang ideal ppm. Ang ppm ay mg/kg batay sa bigat ng lupa; kumpirmahin ang calibration at soil test bago maglagay. Ang kakulangan sa ppm ay hindi dami ng pataba.')}</Text>
+      </View>}
+      {soilTargetMode && <View style={{ gap: 12, marginBottom: 16 }}>
+        <Text style={{ color: colors.text, fontWeight: '700' }}>{t('Fertilizers to address nutrient gaps', 'Mga pataba para sa kulang na sustansiya')}</Text>
+        {result.fertilizer!.recommendations.map(row => <View key={row.nutrient} style={{ padding: 16, borderRadius: 16, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.cardBorder }}>
+          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 15 * fontScale }}>{row.fertilizer}</Text>
+          <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginTop: 8 }}>{t('Consider as a source of', 'Maaaring mapagkukunan ng')} {row.nutrient}. {t('Gap to the minimum reference target', 'Kakulangan sa pinakamababang batayan')}: {row.gap_ppm} ppm.</Text>
+          <FertilizerEvidence inDataset={row.in_dataset} sources={row.sources} />
+        </View>)}
+        {!result.fertilizer!.recommendations.length && <Text style={{ color: colors.subText }}>{t('No NPK fertilizer suggested: none of the nutrients is below its reference minimum. Review any high readings before planting.', 'Walang mungkahing NPK na pataba: walang sustansiyang mas mababa sa batayan. Suriin ang mataas na datos bago magtanim.')}</Text>}
+        <Text style={{ color: colors.subText, fontSize: 12 * fontScale, lineHeight: 18 * fontScale }}>{t('Choose sources only for the nutrients that are low. Product grades vary; check the label. A local agricultural technician should determine the amount from a soil test, soil depth, bulk density and field area. Retest after treatment; adding fertilizer cannot guarantee a specific sensor ppm.', 'Pumili lamang para sa kulang na sustansiya. Iba-iba ang grado ng produkto; suriin ang label. Ipakuwenta sa lokal na agricultural technician ang dami gamit ang soil test, lalim, bulk density at lawak. Muling sukatin matapos maglagay; hindi garantisado ang tiyak na ppm.')}</Text>
+      </View>}
+      {(kind === 'crop' ? ranked.slice(0, 3) : ranked).map((row, index) => <View key={row.name} style={{ marginBottom: 12 }}><RecommendationCard name={row.name} score={row.score} rank={index + 1} kind={kind} plantedCrop={kind === 'fertilizer' ? plantedCrop : undefined} featured={index === 0} fontScale={fontScale} zoneId={zoneId} readingId={result.reading!.id} />{kind === 'fertilizer' && <FertilizerEvidence inDataset={row.in_dataset} sources={row.sources} />}</View>)}
+      {!soilTargetMode && !ranked.length && <Text style={{ color: colors.subText }}>{kind === 'fertilizer' ? result.fertilizer_error ?? t('No fertilizer recommendations are available for the currently planted crop. Refresh or update the recommendation server.', 'Walang rekomendasyon sa pataba para sa kasalukuyang pananim. I-refresh o i-update ang server.') : t('No valid model suggestions available.', 'Walang wastong mungkahi ang modelo.')}</Text>}
     </>}
   </View>;
 }

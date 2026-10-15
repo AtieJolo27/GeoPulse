@@ -310,3 +310,15 @@ Displays
 
 
 
+
+## Crop success results
+
+Apply `supabase/migrations/202610110001_crop_outcomes.sql` to the connected Supabase database before using the crop success graph. Access follows existing zone visibility. The graph groups farmer-reported completed growing cycles by crop for the active zone. Success means a usable harvest; record each cycle once. Success rate = successful cycles / all recorded completed cycles * 100. The PDF still exports sensor history.
+
+Sensor stability instructions are in Tips and Guides. Exact warm-up time and repeatability tolerance must come from the installed sensor manufacturer; no model-specific timing is configured.
+
+## Groq fertilizer advice
+
+The fertilizer tab now reads the selected zone latest NPK readings directly from Supabase and calls the Expo-hosted `/api/groq` route with `mode: fertilizer`. It includes the currently planted crop, or provisional app nutrient reference ranges for an unplanted zone. Advice includes reviewed University of Minnesota Extension reference links. No Render recommendation endpoint or model confidence is used by this tab. New sensor readings show a refresh notice.
+
+Export the web app and deploy with `npx.cmd eas-cli deploy --prod --environment production`. Configure server-only `GROQ_API_KEY` in the production EAS environment with Sensitive visibility.

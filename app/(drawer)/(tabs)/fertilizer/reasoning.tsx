@@ -35,7 +35,7 @@ const REFERENCE_LINKS = [
 export default function Reasoning() {
   const { t, language, fontScale } = useApp();
   const colors = useThemeColors();
-  const { fertilizer, zoneId, readingId } = useLocalSearchParams<{ fertilizer: string; zoneId?: string; readingId?: string }>();
+  const { fertilizer, zoneId, readingId, plantedCrop } = useLocalSearchParams<{ fertilizer: string; zoneId?: string; readingId?: string; plantedCrop?: string }>();
   const fs = (size: number) => Math.round(size * fontScale);
 
   const [soilData, setSoilData] = useState<SoilData | null>(null);
@@ -57,16 +57,17 @@ export default function Reasoning() {
   }, []);
 
   useEffect(() => {
-    if (soilData && fertilizer) {
+    if (soilData && fertilizer && plantedCrop) {
       askGroqAutomatically(fertilizer, soilData);
     }
-  }, [soilData, fertilizer, language]);
+  }, [soilData, fertilizer, plantedCrop, language]);
 
   async function getLatestSoil() {
     try {
       setFetchError(null);
       setLoadingData(true);
 
+      if (!plantedCrop) throw new Error('Open a fertilizer recommendation for the currently planted crop.');
       if (!zoneId || !readingId) throw new Error('Open a recommendation from a zone to review its source reading.');
 
       const { data, error } = await supabase
@@ -101,7 +102,7 @@ export default function Reasoning() {
         : `Respond entirely in English.`;
 
     const dynamicPrompt = `
-      Give a simple fertilizer recommendation for ${targetFertilizer} using these soil conditions:
+      Evaluate ${targetFertilizer} for the currently planted crop: ${plantedCrop}. Base the explanation on this crop and these soil conditions:
       - Nitrogen (N): ${data.nitrogen}
       - Phosphorus (P): ${data.phosphorus}
       - Potassium (K): ${data.potassium}

@@ -1,4 +1,5 @@
 import { useApp } from '@/app/lib/AppContext';
+import SensorManual from './SensorManual';
 import { getCropImage } from '@/app/lib/cropImages';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
@@ -255,6 +256,7 @@ export default function CropGuides() {
         renderItem={({ item }) => <DropdownItem item={item} colors={colors} t={t} fs={fs} topic={topic} />}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         ListHeaderComponent={<>
+          <SensorManual />
           <View style={{ padding: 20, borderRadius: 20, backgroundColor: colors.headerBg, marginBottom: 20 }}>
             <Ionicons name="leaf-outline" size={28} color="#FFFFFF" />
             <Text style={{ color: '#FFFFFF', fontSize: fs(22), fontWeight: '700', marginTop: 12 }}>{t('Grow with confidence', 'Gabay sa iyong pagsasaka')}</Text>

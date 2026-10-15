@@ -32,7 +32,8 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={theme}>
       <StatusBar style={loading && !colors.isDarkMode ? 'dark' : 'light'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack initialRouteName="index" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+        <Stack.Screen name="index" />
         <Stack.Screen name="(drawer)" />
       </Stack>
 
