@@ -37,6 +37,8 @@ interface AppContextType {
   zones: Zone[];
   zonesLoading: boolean;
   activeZoneId: number | null;
+  sensorZoneId: number | null;
+  assignSensorToZone: (zoneId: number) => Promise<void>;
   setActiveZoneId: (zoneId: number) => Promise<void>;
   createZone: (nameEn: string, nameTl: string, soilType: string) => Promise<Zone | null>;
   setPlantedCrop: (zoneId: number, cropName: string, plantedOn: string) => Promise<boolean>;
@@ -61,6 +63,8 @@ const AppContext = createContext<AppContextType>({
   zones: [],
   zonesLoading: true,
   activeZoneId: null,
+  sensorZoneId: null,
+  assignSensorToZone: async () => { },
   setActiveZoneId: async () => { },
   createZone: async () => null,
   setPlantedCrop: async () => false,
@@ -77,7 +81,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesLoading, setZonesLoading] = useState<boolean>(true);
+  const [activeZoneLoading, setActiveZoneLoading] = useState(true);
   const [activeZoneId, setActiveZoneIdState] = useState<number | null>(null);
+  const [sensorZoneId, setSensorZoneId] = useState<number | null>(null);
 
   const isDarkMode = theme === 'dark';
 
@@ -137,48 +143,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // =========================================================
 
   const refreshZones = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await fetch(`${API_BASE_URL}/zones`);
+      const res = await fetch(`${API_BASE_URL}/zones`, { signal: controller.signal });
       if (!res.ok) throw new Error(`Zone request failed (${res.status})`);
       const json = await res.json();
       setZones(json.data ?? []);
     } catch (err) {
       console.warn('Failed to fetch zones:', err);
     } finally {
+      clearTimeout(timeout);
       setZonesLoading(false);
     }
   }, []);
 
   const fetchActiveZone = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await fetch(`${API_BASE_URL}/device/active-zone`);
+      const res = await fetch(`${API_BASE_URL}/device/active-zone`, { signal: controller.signal });
       if (!res.ok) throw new Error(`Active-zone request failed (${res.status})`);
       const json = await res.json();
       if (json.zone) {
+        setSensorZoneId(json.zone.id);
         setActiveZoneIdState(json.zone.id);
       }
     } catch (err) {
       console.warn('Failed to fetch active zone:', err);
+    } finally {
+      clearTimeout(timeout);
+      setActiveZoneLoading(false);
     }
   }, []);
 
   const setActiveZoneId = useCallback(async (zoneId: number) => {
-    // Update local state immediately so the UI feels instant,
-    // then sync to the backend so the ESP32's next reading gets
-    // tagged with this zone too.
+    // Viewing a zone must never redirect the physical sensor's readings.
     setActiveZoneIdState(zoneId);
+  }, []);
 
-    try {
+  const assignSensorToZone = useCallback(async (zoneId: number) => {
+      // Re-read the assignment so another client's changes are not silently lost.
+      const current = await fetch(`${API_BASE_URL}/device/active-zone`);
+      if (!current.ok) throw new Error('Unable to verify the sensor zone. Try again.');
+      const json = await current.json();
+      const currentId = json.zone?.id ?? null;
+      if (currentId !== sensorZoneId) {
+        setSensorZoneId(currentId);
+        throw new Error('The sensor assignment changed. Review its zone and confirm again.');
+      }
       const res = await fetch(`${API_BASE_URL}/device/active-zone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zone_id: zoneId }),
       });
       if (!res.ok) throw new Error(`Active-zone update failed (${res.status})`);
-    } catch (err) {
-      console.warn('Failed to set active zone on backend:', err);
-    }
-  }, []);
+      setSensorZoneId(zoneId);
+  }, [sensorZoneId]);
 
   const createZone = useCallback(async (nameEn: string, nameTl: string, soilType: string): Promise<Zone | null> => {
     try {
@@ -278,8 +299,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fontSize, setFontSize, fontScale,
 
                 zones,
-        zonesLoading,
+        zonesLoading: zonesLoading || activeZoneLoading,
         activeZoneId,
+        sensorZoneId,
+        assignSensorToZone,
         setActiveZoneId,
         createZone,
         setPlantedCrop,

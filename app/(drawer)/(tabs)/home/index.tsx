@@ -2,18 +2,17 @@ import { DashboardSkeleton } from '@/app/components/LoadingSkeleton';
 import { SectionHeader } from '@/app/components/ui/SectionHeader';
 import { StatusBadge } from '@/app/components/ui/StatusBadge';
 import { useApp } from '@/app/lib/AppContext';
-import { getCropImage } from '@/app/lib/cropImages';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
-import { classifySoilValue, SoilLevel, SoilBand, getSoilTypeRanges, SOIL_TYPE_OPTIONS } from '@/lib/soilTypeRanges';
+import { exportDashboardReport } from '@/lib/exportDashboardReport';
 import { validPlantingDate } from '@/lib/plantingDate';
-import { computeSoilHealthScore, parseSensorNumber, SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
+import { computeSoilHealthScore, SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
+import { classifySoilValue, getSoilTypeRanges, SOIL_TYPE_OPTIONS, SoilBand, SoilLevel } from '@/lib/soilTypeRanges';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -26,14 +25,11 @@ import {
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import * as Progress from 'react-native-progress';
 import { CACHE_KEYS, getCache, setCache } from '../../../../lib/cache';
-import { exportDashboardReport } from '@/lib/exportDashboardReport';
 import { lightHaptic, mediumHaptic, warningHaptic } from '../../../../lib/haptics';
 import { supabase } from '../../../../lib/supabaseClient';
 import Urgent_Card from '../../../components/UrgentCard';
 
 const DEFAULT_RANGES = {
-  soil_moisture: { min: 70, max: 75, unit: '%' },
-  soil_temperature: { min: 20, max: 30, unit: '°C' },
   ...SENSOR_REFERENCE_RANGES,
 };
 
@@ -106,8 +102,11 @@ export default function HomeScreen() {
     t,
     fontScale,
     zones,
+    zonesLoading,
     activeZoneId,
     setActiveZoneId,
+    sensorZoneId,
+    assignSensorToZone,
     createZone,
     setPlantedCrop,
   } = useApp();
@@ -118,6 +117,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisibility] = useState(false);
   const [data, setData] = useState<SensorReading[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedZoneId, setLoadedZoneId] = useState<number | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [newZoneNameEn, setNewZoneNameEn] = useState('');
@@ -139,33 +139,57 @@ export default function HomeScreen() {
 
   const SOIL_TYPES = SOIL_TYPE_OPTIONS;
   const [isExporting, setIsExporting] = useState(false);
+  const [sensorMoveVisible, setSensorMoveVisible] = useState(false);
+  const [pendingSensorZoneId, setPendingSensorZoneId] = useState<number | null>(null);
+  const [assigningSensor, setAssigningSensor] = useState(false);
+  const [sensorMoveError, setSensorMoveError] = useState<string | null>(null);
   const readingRequest = useRef(0);
+  const inFlightZone = useRef<number | null | undefined>(undefined);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (background = false) => {
+    if (inFlightZone.current === activeZoneId) return;
+    inFlightZone.current = activeZoneId;
     const requestId = ++readingRequest.current;
+    if (!background) setLoading(true);
     if (activeZoneId === null) {
       setData([]);
+      setLoadedZoneId(null);
       setLoading(false);
       setRefreshing(false);
+      inFlightZone.current = undefined;
       return;
     }
     const cacheKey = `${CACHE_KEYS.SENSOR_READINGS}:zone:${activeZoneId}`;
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       setError(null);
 
       const cached = await getCache<SensorReading[]>(cacheKey);
       if (requestId !== readingRequest.current) return;
-      if (cached && cached.length > 0) {
-        setData(cached);
+      if (!background) setData(cached ?? []);
+      if (cached?.length) {
+        setLoadedZoneId(activeZoneId);
         setLoading(false);
       }
 
-      const { data: fetchedData, error: fetchError } = await supabase
+      const query = supabase
         .from('sensor_readings')
         .select('*')
         .eq('zone_id', activeZoneId)
         .order('created_at', { ascending: false, nullsFirst: false })
-        .order('id', { ascending: false });
+        .order('id', { ascending: false })
+        .limit(1)
+        .abortSignal(controller.signal);
+      const { data: fetchedData, error: fetchError } = await Promise.race([
+        query,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => {
+            reject(new Error('Sensor readings took too long to load. Please retry.'));
+            controller.abort();
+          }, 20000);
+        }),
+      ]);
 
       if (requestId !== readingRequest.current) return;
 
@@ -186,7 +210,10 @@ export default function HomeScreen() {
         setData((prev) => (prev.length === 0 ? cached : prev));
       }
     } finally {
+      clearTimeout(timeout);
       if (requestId === readingRequest.current) {
+        inFlightZone.current = undefined;
+        setLoadedZoneId(activeZoneId);
         setLoading(false);
         setRefreshing(false);
       }
@@ -194,24 +221,26 @@ export default function HomeScreen() {
   }, [activeZoneId]);
 
   useEffect(() => {
-    fetchData();
+    const initialFetch = setTimeout(() => { void fetchData(); }, 0);
 
     const channel = supabase
-      .channel('sensor_readings')
+      .channel(`dashboard-sensor-readings-${activeZoneId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'sensor_readings' },
+        { event: '*', schema: 'public', table: 'sensor_readings', filter: `zone_id=eq.${activeZoneId}` },
         () => {
-          fetchData();
+          void fetchData(true);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(initialFetch);
       readingRequest.current++;
+      inFlightZone.current = undefined;
       supabase.removeChannel(channel);
     };
-  }, [fetchData]);
+  }, [fetchData, activeZoneId]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -257,7 +286,7 @@ export default function HomeScreen() {
     } finally { setIsExporting(false); }
   }, [isExporting, zoneObj, latestRecord, alerts, error, t]);
 
-  if (loading && data.length === 0) {
+  if (zonesLoading || loading || loadedZoneId !== activeZoneId) {
     return <DashboardSkeleton />;
   }
 
@@ -272,7 +301,7 @@ export default function HomeScreen() {
           {error}
         </Text>
         <TouchableOpacity
-          onPress={fetchData}
+          onPress={() => { void fetchData(); }}
           className="mt-6 rounded-xl py-3 px-8"
           style={{ backgroundColor: colors.primary }}
         >
@@ -288,9 +317,7 @@ export default function HomeScreen() {
   const zoneLabelTl = zoneObj?.name_tl ?? 'Sona';
   const totalAlerts = alerts.length;
   const hasPlantedCrop = Boolean(zoneObj?.current_crop);
-  const scoreVisualSize = hasPlantedCrop
-    ? Math.min(132, Math.max(1, ((scoreCardWidth || 240) - 16) / 2))
-    : Math.min(184, scoreCardWidth || 184);
+  const scoreVisualSize = Math.min(184, scoreCardWidth || 184);
   const scoreColor = !healthInfo.available ? colors.mutedText
     : healthInfo.needsAttention ? '#CA8A04' : colors.primary;
 
@@ -320,6 +347,47 @@ export default function HomeScreen() {
           </Text>
         </View>
         {/* Zone selector */}
+        <Modal visible={sensorMoveVisible} transparent animationType="fade" onRequestClose={() => { if (!assigningSensor) setSensorMoveVisible(false); }}>
+          <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <View accessibilityViewIsModal style={{ backgroundColor: colors.cardBgAlt, padding: 24, borderRadius: 24, width: '100%', maxWidth: 420, alignSelf: 'center', borderWidth: 1, borderColor: colors.border }}>
+              <View
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={t('Warning: stop sampling and move the sensor to the selected zone before confirming.', 'Babala: ihinto ang pagsukat at ilipat ang sensor sa napiling sona bago kumpirmahin.')}
+                style={{ alignSelf: 'center', alignItems: 'center', justifyContent: 'center', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(220,38,38,0.1)', marginBottom: 16 }}
+              >
+                <Ionicons name="warning" size={40} color="#DC2626" />
+              </View>
+              <Text accessibilityRole="header" style={{ color: colors.text, fontWeight: '700', fontSize: fs(20), textAlign: 'center' }}>{t('Confirm sensor relocation', 'Kumpirmahin ang paglipat ng sensor')}</Text>
+              <Text style={{ color: colors.subText, fontSize: fs(14), textAlign: 'center', marginTop: 8, marginBottom: 24 }}>
+                {zones.find(zone => zone.id === pendingSensorZoneId)?.name_en}
+              </Text>
+              {sensorMoveError && <Text accessibilityRole="alert" style={{ color: '#DC2626', textAlign: 'center', marginBottom: 16, fontSize: fs(14) }}>{sensorMoveError}</Text>}
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: assigningSensor || pendingSensorZoneId === null }} disabled={assigningSensor || pendingSensorZoneId === null} onPress={async () => {
+                if (pendingSensorZoneId === null) return;
+                await setActiveZoneId(pendingSensorZoneId);
+                setSensorMoveVisible(false);
+              }} style={{ minHeight: 52, justifyContent: 'center', padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 12, opacity: assigningSensor ? 0.5 : 1 }}>
+                <Text style={{ color: colors.text, fontSize: fs(14), fontWeight: '700', textAlign: 'center' }}>{t('View saved readings only', 'Tingnan lamang ang naka-save na datos')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: assigningSensor || pendingSensorZoneId === null, busy: assigningSensor }} disabled={assigningSensor || pendingSensorZoneId === null} style={{ minHeight: 52, justifyContent: 'center', padding: 14, backgroundColor: colors.primary, borderRadius: 12, opacity: assigningSensor ? 0.5 : 1 }} onPress={async () => {
+                if (pendingSensorZoneId === null || assigningSensor) return;
+                setAssigningSensor(true);
+                setSensorMoveError(null);
+                try {
+                  await assignSensorToZone(pendingSensorZoneId);
+                  await setActiveZoneId(pendingSensorZoneId);
+                  setSensorMoveVisible(false);
+                } catch (err) {
+                  setSensorMoveError(err instanceof Error ? err.message : 'Sensor assignment failed. Try again.');
+                } finally { setAssigningSensor(false); }
+              }}><Text style={{ color: '#FFFFFF', fontWeight: '700', textAlign: 'center' }}>{assigningSensor ? t('Saving...', 'Sine-save...') : t('Sensor moved — assign here', 'Nailipat na — italaga dito')}</Text></TouchableOpacity>
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: assigningSensor }} disabled={assigningSensor} onPress={() => setSensorMoveVisible(false)} style={{ minHeight: 48, justifyContent: 'center', padding: 12, marginTop: 12, borderRadius: 12, backgroundColor: '#DC2626', opacity: assigningSensor ? 0.5 : 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: fs(14), fontWeight: '600', textAlign: 'center' }}>{t('Cancel', 'Kanselahin')}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </Modal>
         <View className="mt-4">
           <Text style={{ fontSize: fs(12), fontWeight: '800', letterSpacing: 0.9, color: colors.subText }}>
             {t('FIELD ZONES', 'SONA NG LARANGAN')}
@@ -331,6 +399,13 @@ export default function HomeScreen() {
               key={zone.id}
               onPress={async () => {
                 lightHaptic();
+                if (zone.id === activeZoneId && zone.id === sensorZoneId) return;
+                if (zone.id !== sensorZoneId) {
+                  setPendingSensorZoneId(zone.id);
+                  setSensorMoveError(null);
+                  setSensorMoveVisible(true);
+                  return;
+                }
                 await setActiveZoneId(zone.id);
               }}
               className="border rounded-2xl px-3 py-2"
@@ -433,7 +508,6 @@ export default function HomeScreen() {
             >
               <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
             </TouchableOpacity>
-            {/* Change planted crop */}
 
             <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: colors.cardBgAlt }}>
               <Text className="text-xs font-bold" style={{ color: colors.primary }}>
@@ -444,11 +518,11 @@ export default function HomeScreen() {
           <View className="mt-4">
 
             <View onLayout={({ nativeEvent }) => setScoreCardWidth(nativeEvent.layout.width)}>
-              <View style={{ width: '100%', flexDirection: hasPlantedCrop ? 'row' : 'column', alignItems: 'flex-start' }}>
-                <View style={{ width: hasPlantedCrop ? '50%' : '100%', flexGrow: 0, flexShrink: 0, alignItems: 'center', paddingRight: hasPlantedCrop ? 8 : 0 }}>
+              <View style={{ width: '100%', alignItems: 'center' }}>
+                <View style={{ width: '100%', alignItems: 'center' }}>
                   <AnimatedCircularProgress
                     size={scoreVisualSize}
-                    width={hasPlantedCrop ? 7 : 10}
+                    width={10}
                     fill={healthInfo.score}
                     tintColor={scoreColor}
                     backgroundColor={colors.progressTrack}
@@ -460,7 +534,7 @@ export default function HomeScreen() {
                         <Text
                           numberOfLines={1}
                           adjustsFontSizeToFit
-                          style={{ fontSize: fs(hasPlantedCrop ? 32 : 48), fontWeight: '800', color: colors.text, textAlign: 'center' }}
+                          style={{ fontSize: fs(48), fontWeight: '800', color: colors.text, textAlign: 'center' }}
                         >
                           {healthInfo.available ? Math.round(percentage) : '--'}
                         </Text>
@@ -475,39 +549,6 @@ export default function HomeScreen() {
                   </Text>
                 </View>
 
-                {zoneObj?.current_crop && (
-                  <TouchableOpacity
-                    style={{ width: '50%', flexGrow: 0, flexShrink: 0, paddingLeft: 8, alignItems: 'center' }}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      lightHaptic();
-                      setSelectedCrop(zoneObj.current_crop ?? null);
-                      setPlantingDate(zoneObj.planted_on ?? '');
-                      setPlantModalVisible(true);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('Change planted crop', 'Palitan ang pananim')}
-                  >
-                    <View style={{ width: scoreVisualSize, height: scoreVisualSize }}>
-                      <View style={{ flex: 1, borderRadius: scoreVisualSize / 2, borderWidth: 3, borderColor: colors.primary, padding: 3, backgroundColor: colors.cardBg }}>
-                        <Image
-                          source={getCropImage(zoneObj.current_crop)}
-                          resizeMode="cover"
-                          style={{ width: '100%', height: '100%', borderRadius: scoreVisualSize / 2, backgroundColor: colors.cardBgAlt }}
-                        />
-                      </View>
-                      <View pointerEvents="none" style={{ position: 'absolute', right: 0, bottom: 0, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, borderWidth: 2, borderColor: colors.cardBg, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="pencil" size={15} color="#FFFFFF" />
-                      </View>
-                    </View>
-                    <Text style={{ marginTop: 12, fontSize: fs(13), fontWeight: '700', color: colors.subText, textAlign: 'center', textTransform: 'capitalize' }}>
-                      {zoneObj.current_crop.replace(/_/g, ' ')}
-                    </Text>
-                    <Text style={{ marginTop: 4, fontSize: fs(11), fontWeight: '600', color: colors.greenText, textAlign: 'center' }}>
-                      {t('Tap to change', 'Pindutin para palitan')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
 
               {!hasPlantedCrop && (
@@ -839,6 +880,13 @@ export default function HomeScreen() {
         </View>
 
         {/* Live Sensor Readings */}
+        {!latestRecord && <View style={{ marginTop: 20, padding: 16, borderRadius: 12, backgroundColor: colors.cardBgAlt }}>
+          <Text accessibilityRole="alert" style={{ color: colors.subText, fontSize: fs(13) }}>
+            {activeZoneId === null
+              ? t('Select a zone above to load its sensor values.', 'Pumili ng sona sa itaas para makita ang datos ng sensor.')
+              : t('No sensor readings are linked to this zone yet. Check the sensor assignment or select a zone with recorded readings.', 'Wala pang datos ng sensor sa sonang ito. Suriin ang nakatalagang sona ng sensor o pumili ng sonang may datos.')}
+          </Text>
+        </View>}
         <View className="mt-6 flex-row items-end justify-between">
           <View className="flex-1"><SectionHeader title={t('Soil conditions', 'Kondisyon ng lupa')} subtitle={soilRanges ? `${zoneObj?.soil_type} - ${t('soil reference ranges', 'batayang saklaw ng lupa')}` : t('No soil-specific ranges available; showing provisional defaults.', 'Walang saklaw para sa uri ng lupa; pansamantalang default ang gamit.')} /></View>
           <TouchableOpacity
@@ -1444,7 +1492,7 @@ function SensorCard({
           {label}
         </Text>
       </View>
-      <View className="py-2">
+      <View className="py-2 items-center">
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit

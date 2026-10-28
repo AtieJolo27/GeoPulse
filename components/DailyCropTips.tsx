@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { LoadingSkeleton } from '@/app/components/LoadingSkeleton';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { getApiUrl } from '@/lib/apiConfig';
@@ -124,8 +125,10 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
         </View>
       )}
     </View>
-    {!current ? <View style={{ paddingVertical: 28, alignItems: 'center', gap: 10 }}>
-      <ActivityIndicator color={colors.primary} />
+    {!current ? <View accessibilityRole="progressbar" accessibilityState={{ busy: true }} style={{ paddingVertical: 20, gap: 10 }}>
+      <LoadingSkeleton width="90%" height={16} />
+      <LoadingSkeleton height={16} />
+      <LoadingSkeleton width="70%" height={16} />
       <Text style={{ fontSize: 12 * fontScale, color: colors.subText }}>{t('Preparing today\'s tips...', 'Inihahanda ang mga payo ngayong araw...')}</Text>
     </View> : current.failed ? <View style={{ paddingVertical: 12 }}>
       <Text style={{ color: colors.subText, marginTop: 12 }}>{t('Daily tips are unavailable. Please try again.', 'Hindi makuha ang payo. Subukan muli.')}</Text>

@@ -1,5 +1,6 @@
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import { computeSoilHealthScore } from '@/lib/soilHealthScore';
+import { getSoilTypeRanges } from '@/lib/soilTypeRanges';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import React, { useEffect, useState } from 'react';
@@ -25,7 +26,9 @@ function getHealthColor(score: number): string {
 }
 
 export default function SoilHealthChart() {
-  const { t, isDarkMode, fontScale } = useApp();
+  const { t, isDarkMode, fontScale, activeZoneId, zones } = useApp();
+  const ranges = getSoilTypeRanges(zones.find(zone => zone.id === activeZoneId)?.soil_type) ?? {};
+  const scoreReading = (row: SoilHistoryRow) => computeSoilHealthScore(row, ranges);
   const colors = useThemeColors();
   const fs = (size: number) => Math.round(size * fontScale);
   const [history, setHistory] = useState<SoilHistoryRow[]>([]);
@@ -33,12 +36,18 @@ export default function SoilHealthChart() {
   const [tooltip, setTooltip] = useState<TooltipInfo>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setHistory([]);
+    setTooltip(null);
     (async () => {
-      const data = await getSoilHistory(30);
+      const data = await getSoilHistory(30, activeZoneId);
+      if (cancelled) return;
       setHistory(data);
       setLoading(false);
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [activeZoneId]);
 
   if (loading) {
     return (
@@ -48,7 +57,7 @@ export default function SoilHealthChart() {
     );
   }
 
-  const completeHistory = history.filter(row => computeSoilHealthScore(row).overall !== null);
+  const completeHistory = history.filter(row => scoreReading(row).overall !== null);
   const omitted = history.length - completeHistory.length;
   if (completeHistory.length === 0) {
     return (
@@ -58,7 +67,7 @@ export default function SoilHealthChart() {
     );
   }
 
-  const healthScores = completeHistory.map((row) => computeSoilHealthScore(row).overall!);
+  const healthScores = completeHistory.map((row) => scoreReading(row).overall!);
   const latestScore = healthScores[healthScores.length - 1];
 
   const labelStep = Math.max(1, Math.ceil(completeHistory.length / 6));
@@ -82,7 +91,7 @@ export default function SoilHealthChart() {
       x: data.x,
       y: data.y,
       value: data.value,
-      label: computeSoilHealthScore(row).needsAttention ? 'Check readings' : 'Within bands',
+      label: scoreReading(row).needsAttention ? 'Check readings' : 'Within bands',
       date: dateStr,
     });
   };
@@ -96,7 +105,7 @@ export default function SoilHealthChart() {
         <View className="flex-row items-center" style={{ backgroundColor: colors.cardBgAlt, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
           <View className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: getHealthColor(latestScore) }} />
           <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: getHealthColor(latestScore) }}>
-            {latestScore}/100 - {computeSoilHealthScore(completeHistory[completeHistory.length - 1]).needsAttention ? t('Check readings', 'Suriin ang datos') : t('Within bands', 'Nasa saklaw')}
+            {latestScore}/100 - {scoreReading(completeHistory[completeHistory.length - 1]).needsAttention ? t('Check readings', 'Suriin ang datos') : t('Within bands', 'Nasa saklaw')}
           </Text>
         </View>
       </View>
