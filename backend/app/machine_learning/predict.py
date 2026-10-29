@@ -1,9 +1,12 @@
 import joblib
 import numpy as np
+from functools import lru_cache
+from pathlib import Path
 
-MODEL_PATH = "app/machine_learning/models/crop_model.pkl"
+MODEL_PATH = Path(__file__).resolve().parent / 'models' / 'crop_model.pkl'
 
 
+@lru_cache(maxsize=1)
 def load_model():
     return joblib.load(MODEL_PATH)
 

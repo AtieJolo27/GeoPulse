@@ -39,15 +39,41 @@ test('404 fallback retains zone crop options but excludes predicted-crop fertili
 test('empty zone never predicts another zone data', async () => {
   const { load, requests } = setup(null);
   assert.equal((await load('https://example.test', 7, new AbortController().signal)).reading, null);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 0);
 });
 test('invalid latest data does not reach prediction endpoint', async () => {
   const { load, requests } = setup({ ...reading, ph: null });
   await assert.rejects(load('https://example.test', 7, new AbortController().signal), /valid ph/);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 0);
 });
 test('server errors do not trigger compatibility fallback', async () => {
   const { load, requests } = setup(reading, 500);
   await assert.rejects(load('https://example.test', 7, new AbortController().signal), /Service error/);
+  assert.equal(requests.length, 1);
+});
+
+test('modern backend supplies recommendations after the data check', async () => {
+  const { load, requests } = setup(reading, 200);
+  assert.equal((await load('https://example.test', 7, new AbortController().signal)).zone_id, 7);
+  assert.equal(requests.length, 1);
+});
+
+test('known legacy backend skips repeated missing endpoint probes', async () => {
+  const { load, requests } = setup(reading);
+  await load('https://example.test', 7, new AbortController().signal);
+  await load('https://example.test', 7, new AbortController().signal);
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].url, 'https://example.test/predict');
+});
+
+test('modern backend accepts valid decimal nutrient measurements', async () => {
+  const { load, requests } = setup({ ...reading, nitrogen: 10.5 }, 200);
+  assert.equal((await load('https://example.test', 7, new AbortController().signal)).zone_id, 7);
+  assert.equal(requests.length, 1);
+});
+
+test('legacy server cannot silently truncate decimal nutrient measurements', async () => {
+  const { load, requests } = setup({ ...reading, nitrogen: 10.5 });
+  await assert.rejects(load('https://example.test', 7, new AbortController().signal), /requires an integer nitrogen/);
   assert.equal(requests.length, 1);
 });

@@ -14,18 +14,8 @@ async function request(url: string, options: RequestInit, label: string) {
 
 export async function loadZoneRecommendations(baseUrl: string, zoneId: number, signal: AbortSignal) {
   const base = baseUrl.replace(/\/+$/, '');
-  if (!legacyBackends.has(base)) {
-    const response = await request(`${base}/zones/${zoneId}/recommendations`, { signal }, 'Loading zone recommendations');
-    if (response.status !== 404) {
-      const json = await response.json();
-      if (!response.ok) throw new Error(typeof json.detail === 'string' ? json.detail : 'Unable to generate recommendations.');
-      return json;
-    }
-    legacyBackends.add(base);
-  }
-
-  // Older deployments expose /predict but not the zone-specific route.
-  // Select the source explicitly; never use global prediction history.
+  // Check usable zone data first. Empty zones should not wait for a prediction
+  // server to wake up, and a missing reading must never fall back to global data.
   const { data: reading, error } = await supabase.from('sensor_readings')
     .select('*').eq('zone_id', zoneId)
     .order('created_at', { ascending: false, nullsFirst: false })
@@ -40,10 +30,26 @@ export async function loadZoneRecommendations(baseUrl: string, zoneId: number, s
     if (!Number.isFinite(value)) throw new Error(`The latest reading is missing a valid ${field}.`);
     if ((field === 'ph' && (value < 0 || value > 14)) ||
       ((field === 'humidity' || field === 'soil_moisture') && (value < 0 || value > 100)) ||
-      (['nitrogen', 'phosphorus', 'potassium'].includes(field) && (value < 0 || !Number.isInteger(value)))) {
+      (['nitrogen', 'phosphorus', 'potassium'].includes(field) && value < 0)) {
       throw new Error(`The latest reading has an invalid ${field}.`);
     }
     measurements[field] = value;
+  }
+  if (!legacyBackends.has(base)) {
+    const response = await request(`${base}/zones/${zoneId}/recommendations`, { signal }, 'Loading zone recommendations');
+    if (response.status !== 404) {
+      const json = await response.json();
+      if (!response.ok) throw new Error(typeof json.detail === 'string' ? json.detail : 'Unable to generate recommendations.');
+      return json;
+    }
+    legacyBackends.add(base);
+  }
+
+  // Older deployments expose /predict but not the zone-specific route.
+  for (const field of ['nitrogen', 'phosphorus', 'potassium']) {
+    if (!Number.isInteger(measurements[field])) {
+      throw new Error(`The legacy prediction server requires an integer ${field} reading. Update the recommendation server to support decimal measurements.`);
+    }
   }
   const prediction = await request(`${base}/predict`, {
     method: 'POST', signal, headers: { 'Content-Type': 'application/json' },

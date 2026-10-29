@@ -1,4 +1,5 @@
 import { validPlantingDate } from '@/lib/plantingDate';
+import { backendRequest } from '@/lib/backendRequest';
 import { supabase } from '@/lib/supabaseClient';
 import { User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -36,6 +37,9 @@ interface AppContextType {
 
   zones: Zone[];
   zonesLoading: boolean;
+  zonesError: string | null;
+  sensorZoneError: string | null;
+  retryZoneLoading: () => Promise<void>;
   activeZoneId: number | null;
   sensorZoneId: number | null;
   assignSensorToZone: (zoneId: number) => Promise<void>;
@@ -62,6 +66,9 @@ const AppContext = createContext<AppContextType>({
 
   zones: [],
   zonesLoading: true,
+  zonesError: null,
+  sensorZoneError: null,
+  retryZoneLoading: async () => { },
   activeZoneId: null,
   sensorZoneId: null,
   assignSensorToZone: async () => { },
@@ -81,7 +88,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesLoading, setZonesLoading] = useState<boolean>(true);
-  const [activeZoneLoading, setActiveZoneLoading] = useState(true);
+  const [zonesError, setZonesError] = useState<string | null>(null);
+  const [sensorZoneError, setSensorZoneError] = useState<string | null>(null);
   const [activeZoneId, setActiveZoneIdState] = useState<number | null>(null);
   const [sensorZoneId, setSensorZoneId] = useState<number | null>(null);
 
@@ -143,39 +151,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // =========================================================
 
   const refreshZones = useCallback(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    setZonesLoading(true);
+    setZonesError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/zones`, { signal: controller.signal });
-      if (!res.ok) throw new Error(`Zone request failed (${res.status})`);
-      const json = await res.json();
-      setZones(json.data ?? []);
+      const json = await backendRequest('/zones');
+      if (!Array.isArray(json.data)) throw new Error('The server returned an invalid zone list.');
+      setZones(json.data.map((zone: Zone & { name?: string }) => ({
+        ...zone,
+        name_en: zone.name_en || zone.name || `Zone ${zone.id}`,
+        name_tl: zone.name_tl || zone.name_en || zone.name || `Sona ${zone.id}`,
+      })));
     } catch (err) {
+      setZonesError(err instanceof Error ? err.message : 'Unable to load zones. Please retry.');
       console.warn('Failed to fetch zones:', err);
     } finally {
-      clearTimeout(timeout);
       setZonesLoading(false);
     }
   }, []);
 
   const fetchActiveZone = useCallback(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    setSensorZoneError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/device/active-zone`, { signal: controller.signal });
-      if (!res.ok) throw new Error(`Active-zone request failed (${res.status})`);
-      const json = await res.json();
-      if (json.zone) {
-        setSensorZoneId(json.zone.id);
-        setActiveZoneIdState(json.zone.id);
-      }
+      const json = await backendRequest('/device/active-zone');
+      setSensorZoneId(json.zone?.id ?? null);
+      // A late response must not replace a zone the user has already selected.
+      setActiveZoneIdState(current => current ?? json.zone?.id ?? null);
     } catch (err) {
+      setSensorZoneError(err instanceof Error ? err.message : 'Unable to verify the sensor assignment.');
       console.warn('Failed to fetch active zone:', err);
-    } finally {
-      clearTimeout(timeout);
-      setActiveZoneLoading(false);
     }
   }, []);
+
+  const retryZoneLoading = useCallback(async () => {
+    await Promise.all([refreshZones(), fetchActiveZone()]);
+  }, [refreshZones, fetchActiveZone]);
 
   const setActiveZoneId = useCallback(async (zoneId: number) => {
     // Viewing a zone must never redirect the physical sensor's readings.
@@ -184,21 +193,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const assignSensorToZone = useCallback(async (zoneId: number) => {
       // Re-read the assignment so another client's changes are not silently lost.
-      const current = await fetch(`${API_BASE_URL}/device/active-zone`);
-      if (!current.ok) throw new Error('Unable to verify the sensor zone. Try again.');
-      const json = await current.json();
+      const json = await backendRequest('/device/active-zone');
       const currentId = json.zone?.id ?? null;
       if (currentId !== sensorZoneId) {
         setSensorZoneId(currentId);
         throw new Error('The sensor assignment changed. Review its zone and confirm again.');
       }
-      const res = await fetch(`${API_BASE_URL}/device/active-zone`, {
+      await backendRequest('/device/active-zone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zone_id: zoneId }),
       });
-      if (!res.ok) throw new Error(`Active-zone update failed (${res.status})`);
       setSensorZoneId(zoneId);
+      setSensorZoneError(null);
   }, [sensorZoneId]);
 
   const createZone = useCallback(async (nameEn: string, nameTl: string, soilType: string): Promise<Zone | null> => {
@@ -230,6 +237,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Initial network loading belongs to provider startup; user retries use the same callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshZones();
     fetchActiveZone();
   }, [refreshZones, fetchActiveZone]);
@@ -299,7 +308,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fontSize, setFontSize, fontScale,
 
                 zones,
-        zonesLoading: zonesLoading || activeZoneLoading,
+        zonesLoading,
+        zonesError,
+        sensorZoneError,
+        retryZoneLoading,
         activeZoneId,
         sensorZoneId,
         assignSensorToZone,

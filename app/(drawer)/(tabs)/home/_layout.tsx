@@ -4,7 +4,7 @@ import { Stack } from 'expo-router';
 import "../../../global.css";
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+  anchor: 'index',
 };
 export default function HomeLayout () {
   const colors = useThemeColors();

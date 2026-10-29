@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.machine_learning.predict_fertilizer import predict_fertilizer
 from app.services.fertilizer_service import save_fertilizer_prediction
 from app.services.zone_recommendations import recommend_for_zone
+from app.services.sensor_assignment import get_sensor_zone, assign_sensor_zone
 
 app = FastAPI()
 
@@ -35,6 +36,30 @@ class ZoneInput(BaseModel):
 
 
 EMPTY_BOUNDARY_GEOJSON = {"type": "FeatureCollection", "features": []}
+
+
+class SensorZoneInput(BaseModel):
+    zone_id: int
+
+
+@app.get('/device/active-zone')
+def get_active_sensor_zone():
+    try:
+        return {'zone': get_sensor_zone(supabase, get_default_farm_id())}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail='Unable to load sensor assignment') from exc
+
+
+@app.post('/device/active-zone')
+def set_active_sensor_zone(assignment: SensorZoneInput):
+    try:
+        return {'zone': assign_sensor_zone(supabase, get_default_farm_id(), assignment.zone_id)}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail='Unable to save sensor assignment') from exc
 
 
 def get_default_farm_id() -> int:
