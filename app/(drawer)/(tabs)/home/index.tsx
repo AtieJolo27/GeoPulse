@@ -928,31 +928,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        <View className="mt-6">
-          <SectionHeader
-            title={t('Needs attention', 'Kailangang bigyan pansin')}
-            subtitle={alerts.length ? t('These conditions may need action today.', 'Maaaring kailangan ng aksyon ang mga kondisyong ito ngayon.') : t('Everything looks good today.', 'Maayos ang lahat ngayon.')}
-          />
-          {alerts.length > 0 ? (
-            <View className="rounded-2xl border p-4" style={{ backgroundColor: '#FFF8E8', borderColor: '#F5D79B' }}>
-              <View className="flex-row items-start">
-                <Ionicons name="warning" size={22} color="#A16207" />
-                <View className="ml-3 flex-1">
-                  <Text style={{ fontSize: fs(15), fontWeight: '800', color: '#7C4A03' }}>{alerts[0].field}</Text>
-                  <Text className="mt-1" style={{ fontSize: fs(13), lineHeight: 19, color: '#7C4A03' }}>{t(alerts[0].message, alerts[0].messageTl)}</Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View className="flex-row items-center rounded-2xl border p-4" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
-              <Text className="ml-3 flex-1" style={{ fontSize: fs(14), color: colors.subText }}>
-                {t('Your latest readings are within their recommended ranges.', 'Ang inyong huling readings ay nasa inirerekomendang antas.')}
-              </Text>
-            </View>
-          )}
-        </View>
-
         {zoneObj?.current_crop && (
           <DailyCropTips zoneId={zoneObj.id} crop={zoneObj.current_crop} plantedOn={zoneObj.planted_on} soilType={zoneObj.soil_type} />
         )}
