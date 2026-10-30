@@ -6,12 +6,13 @@ import { supabase } from '@/lib/supabaseClient';
 import { classifySoilValue, getSoilTypeRanges } from '@/lib/soilTypeRanges';
 import { SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
 import type { SensorReading } from '@/lib/sensorAlerts';
+import { markNotificationsRead, sensorNotifications } from '@/lib/notificationReadState';
 import { Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function NotificationsScreen() {
-  const { t, fontScale, zones, activeZoneId, zonesLoading } = useApp();
+  const { t, fontScale, zones, activeZoneId, zonesLoading, user } = useApp();
   const colors = useThemeColors();
   const zone = zones.find(item => item.id === activeZoneId);
   const [attempt, setAttempt] = useState(0);
@@ -43,6 +44,11 @@ export default function NotificationsScreen() {
   }, [activeZoneId, attempt]));
   const current = state.zoneId === activeZoneId ? state : null;
   const loading = zonesLoading || !current || current.loading;
+  useEffect(() => {
+    if (!loading && current?.reading && !current.error) {
+      markNotificationsRead(user?.id ?? null, activeZoneId, sensorNotifications(current.reading, zone?.soil_type).map(alert => alert.id));
+    }
+  }, [loading, current, user?.id, activeZoneId, zone?.soil_type]);
   const refresh = () => setAttempt(value => value + 1);
   const ranges = { ...SENSOR_REFERENCE_RANGES, ...getSoilTypeRanges(zone?.soil_type) };
   const alerts = current?.reading ? (Object.keys(SENSOR_REFERENCE_RANGES) as (keyof typeof SENSOR_REFERENCE_RANGES)[]).flatMap(key => {

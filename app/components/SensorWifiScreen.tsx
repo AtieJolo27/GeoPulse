@@ -35,7 +35,6 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Linking,
     Platform,
     StyleSheet,
@@ -71,14 +70,14 @@ export default function SensorWifiScreen() {
   // client list, or from whatever your FastAPI/Supabase backend logs).
   const [sensorIp, setSensorIp] = useState("");
 
-  const [status, setStatus] = useState(null); // { connected, ssid, ip, failed }
+  const [status, setStatus] = useState<{ connected: boolean; ssid?: string; ip?: string; failed?: boolean } | null>(null); // { connected, ssid, ip, failed }
   const [loadingStatus, setLoadingStatus] = useState(false);
 
   const [mode, setMode] = useState("normal"); // "normal" | "waiting_for_ap" | "provisioning"
 
-  const [networks, setNetworks] = useState([]);
+  const [networks, setNetworks] = useState<{ ssid: string; auth: number; rssi: number }[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState(null);
+  const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
 
@@ -97,7 +96,7 @@ export default function SensorWifiScreen() {
       const res = await fetch(`http://${sensorIp}/wifi/status`, { cache: "no-store" });
       const data = await res.json();
       setStatus(data);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-reach ang sensor",
         "Siguraduhing magkasama kayo sa parehong Wi-Fi network, at tama ang IP address."
@@ -128,7 +127,7 @@ export default function SensorWifiScreen() {
           onPress: async () => {
             try {
               await fetch(`http://${sensorIp}/wifi/reset`, { cache: "no-store" });
-            } catch (err) {
+            } catch {
               // The sensor restarts almost immediately after responding,
               // so a network error here is expected/harmless.
             }
@@ -169,7 +168,7 @@ export default function SensorWifiScreen() {
       const resultsRes = await fetch(`http://${AP_MODE_IP}/scan/results`, { cache: "no-store" });
       const resultsData = await resultsRes.json();
       setNetworks(resultsData.networks || []);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-scan",
         "Siguraduhing naka-connect ang phone mo sa Wi-Fi ng sensor (SOIL-SENSOR-XXXX)."
@@ -203,7 +202,7 @@ export default function SensorWifiScreen() {
       } else {
         Alert.alert("May mali", data.message || "Hindi na-set ang Wi-Fi.");
       }
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-reach ang sensor",
         "Siguraduhing naka-connect ka pa rin sa SOIL-SENSOR-XXXX network."
@@ -261,11 +260,10 @@ export default function SensorWifiScreen() {
           )}
         </TouchableOpacity>
 
-        <FlatList
-          data={networks}
-          keyExtractor={(item) => item.ssid}
-          renderItem={({ item }) => (
+        <View style={{ marginTop: 12 }}>
+          {networks.map(item => (
             <TouchableOpacity
+              key={item.ssid}
               style={[
                 styles.networkRow,
                 selectedSsid === item.ssid && styles.networkRowSelected,
@@ -277,9 +275,8 @@ export default function SensorWifiScreen() {
               </Text>
               <Text style={styles.networkInfo}>{item.rssi} dBm</Text>
             </TouchableOpacity>
-          )}
-          style={{ marginTop: 12, maxHeight: 260 }}
-        />
+          ))}
+        </View>
 
         {selectedSsid && (
           <View style={{ marginTop: 16 }}>
@@ -352,7 +349,7 @@ export default function SensorWifiScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f4f7f5" },
+  container: { padding: 4, backgroundColor: "#f4f7f5" },
   title: { fontSize: 22, fontWeight: "700", marginBottom: 16, color: "#222" },
   label: { fontSize: 14, color: "#555", marginBottom: 6 },
   paragraph: { fontSize: 15, color: "#333", marginBottom: 16, lineHeight: 21 },
