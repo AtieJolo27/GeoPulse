@@ -1,3 +1,4 @@
+import CropCalendar from '@/components/CropCalendar';
 import CropSuccessChart from '@/app/components/CropSuccessChart';
 import { SectionHeader } from '@/app/components/ui/SectionHeader';
 import { useApp } from '@/app/lib/AppContext';
@@ -21,6 +22,7 @@ export default function History() {
 
   return (
     <ScrollView className="flex-1 px-5 pt-5" style={{ backgroundColor: colors.bg }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 105 }}>
+      <CropCalendar />
       <Text style={{ color: colors.subText }}>{t('Harvest results', 'Mga resulta ng ani')}</Text>
       <Text className="mt-1" style={{ fontSize: 25, fontWeight: '800', color: colors.text }}>{t('Crop success rate', 'Antas ng tagumpay ng pananim')}</Text>
       <Text className="mt-2" style={{ fontSize: 13, lineHeight: 19, color: colors.subText }}>{t('Compare recorded harvest outcomes for the selected zone.', 'Ihambing ang mga naitalang resulta ng ani para sa napiling sona.')}</Text>

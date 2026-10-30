@@ -1,6 +1,7 @@
 import { validPlantingDate } from '@/lib/plantingDate';
 import { backendRequest } from '@/lib/backendRequest';
 import { supabase } from '@/lib/supabaseClient';
+import { disablePushNotifications } from '@/lib/pushNotifications';
 import { User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -136,7 +137,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      await disablePushNotifications();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
     } catch (error: any) {
       console.error('Logout error:', error);

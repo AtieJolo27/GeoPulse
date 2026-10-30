@@ -8,7 +8,7 @@ export default function HistoryLayout() {
   return (
     <Stack
       screenOptions={{
-        headerTitle: 'Field History',
+        headerTitle: 'Manage',
         headerTitleStyle: { fontWeight: '800', fontSize: 20, color: '#FFFFFF' },
         headerStyle: { backgroundColor: colors.headerBg },
       contentStyle: { backgroundColor: colors.bg },
@@ -17,7 +17,7 @@ export default function HistoryLayout() {
         header: ({ options, route, navigation, back }) => <TabScreenHeader title={typeof options.headerTitle === 'string' ? options.headerTitle : options.title ?? route.name} onBack={back ? () => navigation.goBack() : undefined} />,
       }}
     >
-      <Stack.Screen name="histories" options={{ title: 'Field History' }} />
+      <Stack.Screen name="histories" options={{ title: 'Manage' }} />
     </Stack>
   );
 }

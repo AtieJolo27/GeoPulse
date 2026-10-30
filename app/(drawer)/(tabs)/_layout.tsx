@@ -62,9 +62,9 @@ export default function RootLayout() {
         />
       <Tabs.Screen name="history"
         options={{
-          title: "History",
+          title: "Manage",
         tabBarIcon: ({color, size, focused}) =>
-            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} size={size} />
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} color={color} size={size} />
         }}
         />
 

@@ -1,4 +1,4 @@
-# 🌱 GeoPulse: An IoT-Based Intelligent Platform for Comparative Analysis of Diverse Soil Geologies and Nutrient Densities
+ # 🌱 GeoPulse: An IoT-Based Intelligent Platform for Comparative Analysis of Diverse Soil Geologies and Nutrient Densities
 
  **Capstone Project Presentation**
 

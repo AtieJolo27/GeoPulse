@@ -1,0 +1,21 @@
+# Crop calendar and push notifications
+
+The calendar is in the **Manage** tab, above the existing harvest history and report export. Tap a day in the month grid to add harvest/fertilizer tasks. Gold and blue markers identify saved and AI-preview dates.
+
+If the calendar table has not been installed, dates are saved on this device, scoped to the signed-in account and selected zone. The app labels this mode and disables cloud reminder registration. Apply the migration below, then reopen Manage or tap Check cloud sync to upload pending dates. Device-only dates do not generate server push reminders. Clearing app/browser storage before syncing removes these local dates.
+
+Apply `supabase/migrations/202610300001_crop_calendar_push.sql` to the app's Supabase project. New tables use authenticated user ownership and existing zone visibility policies. Ensure zones policies restrict visibility to intended farm members.
+
+Deploy the Expo API routes to the existing hosting service with server-only `GROQ_API_KEY`. The calendar uses `/api/crop-schedule`; native builds need `EXPO_PUBLIC_GROQ_API_URL` as for existing AI advice. Predictions are estimates for farmer review, not a trained harvest model. Unknown varieties and growing conditions affect dates. Fertilizer suggestions are review dates, not automatic application instructions.
+
+Build and install a new Android/iOS development or production binary with `expo-notifications`. Configure EAS FCM v1 credentials for Android and APNs credentials for iOS. Expo Go and web cannot register for these push alerts. Test on physical devices. Enable alerts in the crop calendar after signing in. Enabling subscribes the farmer to moisture alerts for currently accessible zones. Disabling removes this device's token; signing out also unregisters it. The OS permission remains under device settings.
+
+Install `backend/requirements-push.txt` for the independent worker. Run `python -m app.services.push_worker` from `backend/` every minute using a server cron job, with `SUPABASE_URL` and a server-only Supabase **service role** `SUPABASE_KEY`. Never put this key in an `EXPO_PUBLIC_` variable. Set `EXPO_ACCESS_TOKEN` if Expo push security is enabled. The worker is a private command, not a public HTTP endpoint. It must run independently of the phone or a sleeping web service.
+
+Reminders are absolute instants at 8 a.m. in the saving device's timezone; changing timezones later does not move an existing reminder. A reminder saved after today's 8 a.m. can arrive on the next worker run. Dates more than one day overdue remain visible but do not send stale reminders. Replanting suppresses the old crop cycle's reminders. Editing a date changes its delivery key; completing or deleting it suppresses future worker runs.
+
+Moisture alerts use dashboard soil-type thresholds, reject missing/invalid readings and readings older than an hour, and send at most once per zone, condition and device per UTC hour. Unknown soil types use the dashboard's provisional 60–85% band. Delivery leases prevent concurrent workers from normally duplicating alerts. Failed requests retry after five minutes. A crash after Expo accepts a message but before database acknowledgement can produce a duplicate. Expo acceptance does not guarantee device delivery; inspect stored ticket IDs through Expo's push receipts endpoint to diagnose FCM/APNs credentials or delivery failures. Monitor cron failures and prune old `push_deliveries` rows as needed.
+
+Device validation: enable alerts; save today's date and a future date; edit, complete and delete events; tap notifications; sign out. Insert fresh low/high/normal moisture readings for subscribed zones, run the worker twice, and verify thresholds and duplicate suppression. Verify another user's calendar and tokens are inaccessible. Confirm the cron runs with the app closed.
+
+If the AI button reports that the calendar service is unavailable, POST /api/crop-schedule is returning an HTML/404 response from an old hosting deployment. Export and deploy the updated Expo API routes to the same EAS hosting service configured in EXPO_PUBLIC_GROQ_API_URL. The client now displays a deployment message rather than a JSON parser exception.
