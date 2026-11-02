@@ -4,6 +4,7 @@ import { StatusBadge } from '@/app/components/ui/StatusBadge';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
+import SensorAttempts from '@/components/SensorAttempts';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
 import { exportDashboardReport } from '@/lib/exportDashboardReport';
 import { validPlantingDate } from '@/lib/plantingDate';
@@ -450,6 +451,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
+        <SensorAttempts />
         <View className="my-2">
           {!loading && !error && activeZoneId !== null && data.length === 0 && (
             <Text accessibilityRole="alert" style={{ color: colors.subText, marginTop: 12 }}>

@@ -42,6 +42,30 @@ class SensorZoneInput(BaseModel):
     zone_id: int
 
 
+@app.get('/sensor-attempts')
+def list_sensor_attempts(zone_id: int):
+    farm_id = get_default_farm_id()
+    rows = (supabase.table('sensor_attempts').select('*').eq('farm_id', farm_id)
+            .eq('zone_id', zone_id).order('attempt_number', desc=True).limit(20).execute()).data
+    active = (supabase.table('sensor_attempts').select('*').eq('farm_id', farm_id)
+              .is_('ended_at', 'null').limit(1).execute()).data
+    return {'attempts': rows, 'active': active[0] if active else None}
+
+
+@app.post('/sensor-attempts/start')
+def start_sensor_attempt(assignment: SensorZoneInput):
+    return {'attempt': supabase.rpc('start_sensor_attempt', {
+        'p_farm_id': get_default_farm_id(), 'p_zone_id': assignment.zone_id,
+    }).execute().data}
+
+
+@app.post('/sensor-attempts/{attempt_id}/finish')
+def finish_sensor_attempt(attempt_id: int):
+    return {'attempt': supabase.rpc('finish_sensor_attempt', {
+        'p_farm_id': get_default_farm_id(), 'p_attempt_id': attempt_id,
+    }).execute().data}
+
+
 @app.get('/device/active-zone')
 def get_active_sensor_zone():
     try:
