@@ -40,6 +40,7 @@ interface AppContextType {
   zonesLoading: boolean;
   zonesError: string | null;
   sensorZoneError: string | null;
+  sensorZoneLoading: boolean;
   retryZoneLoading: () => Promise<void>;
   activeZoneId: number | null;
   sensorZoneId: number | null;
@@ -69,6 +70,7 @@ const AppContext = createContext<AppContextType>({
   zonesLoading: true,
   zonesError: null,
   sensorZoneError: null,
+  sensorZoneLoading: true,
   retryZoneLoading: async () => { },
   activeZoneId: null,
   sensorZoneId: null,
@@ -91,6 +93,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [zonesLoading, setZonesLoading] = useState<boolean>(true);
   const [zonesError, setZonesError] = useState<string | null>(null);
   const [sensorZoneError, setSensorZoneError] = useState<string | null>(null);
+  const [sensorZoneLoading, setSensorZoneLoading] = useState(true);
   const [activeZoneId, setActiveZoneIdState] = useState<number | null>(null);
   const [sensorZoneId, setSensorZoneId] = useState<number | null>(null);
 
@@ -173,6 +176,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchActiveZone = useCallback(async () => {
+    setSensorZoneLoading(true);
     setSensorZoneError(null);
     try {
       const json = await backendRequest('/device/active-zone');
@@ -182,6 +186,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setSensorZoneError(err instanceof Error ? err.message : 'Unable to verify the sensor assignment.');
       console.warn('Failed to fetch active zone:', err);
+    } finally {
+      setSensorZoneLoading(false);
     }
   }, []);
 
@@ -314,6 +320,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         zonesLoading,
         zonesError,
         sensorZoneError,
+        sensorZoneLoading,
         retryZoneLoading,
         activeZoneId,
         sensorZoneId,

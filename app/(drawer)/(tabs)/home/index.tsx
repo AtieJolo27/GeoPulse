@@ -4,6 +4,7 @@ import { StatusBadge } from '@/app/components/ui/StatusBadge';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
+import DashboardLoadingIndicator from '@/components/DashboardLoadingIndicator';
 import SensorAttempts from '@/components/SensorAttempts';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
 import { exportDashboardReport } from '@/lib/exportDashboardReport';
@@ -106,6 +107,7 @@ export default function HomeScreen() {
     zonesLoading,
     zonesError,
     sensorZoneError,
+    sensorZoneLoading,
     retryZoneLoading,
     activeZoneId,
     setActiveZoneId,
@@ -121,6 +123,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisibility] = useState(false);
   const [data, setData] = useState<SensorReading[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingReadings, setFetchingReadings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [newZoneNameEn, setNewZoneNameEn] = useState('');
@@ -144,6 +147,7 @@ export default function HomeScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [sensorMoveVisible, setSensorMoveVisible] = useState(false);
   const [pendingSensorZoneId, setPendingSensorZoneId] = useState<number | null>(null);
+  const [sensorMoveTapZoneId, setSensorMoveTapZoneId] = useState<number | null>(null);
   const [assigningSensor, setAssigningSensor] = useState(false);
   const [sensorMoveError, setSensorMoveError] = useState<string | null>(null);
   const readingRequest = useRef(0);
@@ -151,12 +155,14 @@ export default function HomeScreen() {
   const fetchData = useCallback(async () => {
     const requestId = ++readingRequest.current;
     if (activeZoneId === null) {
+      setFetchingReadings(false);
       setData([]);
       setLoading(false);
       setRefreshing(false);
       return;
     }
     const cacheKey = `${CACHE_KEYS.SENSOR_READINGS}:zone:${activeZoneId}`;
+    setFetchingReadings(true);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
@@ -198,6 +204,7 @@ export default function HomeScreen() {
     } finally {
       clearTimeout(timeout);
       if (requestId === readingRequest.current) {
+        setFetchingReadings(false);
         setLoading(false);
         setRefreshing(false);
       }
@@ -271,7 +278,10 @@ export default function HomeScreen() {
   }, [isExporting, zoneObj, latestRecord, alerts, error, t]);
 
   if (loading && data.length === 0) {
-    return <DashboardSkeleton />;
+    return <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ paddingHorizontal: 28, paddingTop: 20 }}><DashboardLoadingIndicator readings={activeZoneId !== null && !zonesLoading && !sensorZoneLoading} /></View>
+      <DashboardSkeleton />
+    </View>;
   }
 
   const zoneLabelEn = zoneObj?.name_en ?? 'Zone';
@@ -308,6 +318,7 @@ export default function HomeScreen() {
           </Text>
         </View>
         {/* Zone selector */}
+        {(zonesLoading || sensorZoneLoading || fetchingReadings || refreshing) && <DashboardLoadingIndicator readings={!zonesLoading && !sensorZoneLoading} />}
         {error && <View accessibilityRole="alert" style={{ padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 12 }}>
           <Text style={{ color: colors.text }}>{t('Unable to refresh soil readings.', 'Hindi ma-refresh ang datos ng lupa.')}</Text>
           <Text style={{ color: colors.subText, marginTop: 6 }}>{error}</Text>
@@ -378,6 +389,14 @@ export default function HomeScreen() {
               key={zone.id}
               onPress={async () => {
                 lightHaptic();
+                if (zone.id !== sensorZoneId && sensorMoveTapZoneId === zone.id && activeZoneId === zone.id && !sensorZoneLoading && !sensorZoneError) {
+                  setSensorMoveTapZoneId(null);
+                  setPendingSensorZoneId(zone.id);
+                  setSensorMoveError(null);
+                  setSensorMoveVisible(true);
+                  return;
+                }
+                setSensorMoveTapZoneId(zone.id !== sensorZoneId ? zone.id : null);
                 await setActiveZoneId(zone.id);
               }}
               className="border rounded-2xl px-3 py-2"
@@ -394,6 +413,8 @@ export default function HomeScreen() {
               }}
               accessibilityRole="button"
               accessibilityLabel={t(`Select ${zone.name_en}`, `Piliin ang ${zone.name_tl}`)}
+              accessibilityState={{ selected: activeZoneId === zone.id }}
+              accessibilityHint={zone.id === sensorZoneId ? t('Sensor assigned here', 'Nandito ang sensor') : t('Tap again to move sensor here', 'Pindutin muli para ilipat ang sensor')}
             >
               <Text
                 numberOfLines={1}
@@ -418,6 +439,13 @@ export default function HomeScreen() {
                   {zone.soil_type}
                 </Text>
               </View>
+              <Text style={{ marginTop: 6, fontSize: fs(10), fontWeight: '600', textAlign: 'center', color: activeZoneId === zone.id ? 'white' : colors.primary }}>
+                {zone.id === sensorZoneId
+                  ? t('Sensor here', 'Nandito ang sensor')
+                  : sensorMoveTapZoneId === zone.id && activeZoneId === zone.id
+                    ? t('Tap again to move here', 'Tap muli para ilipat')
+                    : t('Move sensor', 'Ilipat ang sensor')}
+              </Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity
@@ -441,15 +469,6 @@ export default function HomeScreen() {
         </ScrollView>
 
         {activeZoneId === null && <Text style={{ color: colors.subText, marginTop: 12 }}>{zonesLoading ? t('Loading field zones...', 'Nilo-load ang mga sona...') : zones.length ? t('Select a zone to load its soil readings.', 'Pumili ng sona para ma-load ang datos ng lupa.') : t('No zones available. Retry the connection or add a zone.', 'Walang sona. Subukang kumonekta muli o magdagdag ng sona.')}</Text>}
-        {activeZoneId !== null && activeZoneId !== sensorZoneId && (
-          <TouchableOpacity accessibilityRole="button" onPress={() => {
-            setPendingSensorZoneId(activeZoneId);
-            setSensorMoveError(null);
-            setSensorMoveVisible(true);
-          }} style={{ minHeight: 48, justifyContent: 'center', marginTop: 8 }}>
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>{t('Move sensor to this zone', 'Ilipat ang sensor sa sonang ito')}</Text>
-          </TouchableOpacity>
-        )}
 
         <SensorAttempts />
         <View className="my-2">
