@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, HTTPException
+from app.services.gemini_proxy import router as gemini_router
 from app.services.sensor_service import save_sensor_data
 from app.utils.sensor_generator import generate_sensor_data
 from app.database.supabase import supabase
@@ -15,6 +16,7 @@ from app.services.zone_recommendations import recommend_for_zone
 from app.services.sensor_assignment import get_sensor_zone, assign_sensor_zone
 
 app = FastAPI()
+app.include_router(gemini_router)
 
 app.add_middleware(
     CORSMiddleware,

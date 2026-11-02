@@ -35,7 +35,7 @@ export default function GroqFertilizerRecommendations({ zoneId, crop }: { zoneId
         const soilRanges = getSoilTypeRanges(soilType);
         const targets = Object.fromEntries(nutrients.map(({ key }) => [key, (soilRanges ?? SENSOR_REFERENCE_RANGES)[key as 'nitrogen' | 'phosphorus' | 'potassium']]));
         const optional = Object.fromEntries(['ph', 'soil_temperature', 'air_temperature', 'humidity', 'soil_moisture'].map(key => [key, parseSensorNumber(reading[key])]));
-        const response = await fetch(getApiUrl('/api/groq'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        const response = await fetch(getApiUrl('/api/gemini'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           body: JSON.stringify({ mode: 'fertilizer', format: 'cards', prompt: `Respond in ${language === 'tagalog' ? 'Tagalog' : 'English'}. Assess fertilizer options using this context: ${JSON.stringify({ soil_type: soilType, planted_crop: crop?.trim() || null, nutrients_ppm: Object.fromEntries(nutrients.map(item => [item.key, item.value])), provisional_reference_ranges: targets, other_readings: optional })}. Explain the nutrient gaps and cite the supplied references by number. Do not give an application dose.` }) });
         let json;
         try { json = await response.json(); } catch { throw new Error('The hosted Groq route did not return JSON. Deploy the updated Expo API route.'); }

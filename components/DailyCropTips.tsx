@@ -70,7 +70,7 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
   const colors = useThemeColors();
   const [today, setToday] = useState(localDate);
   const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ key: string; text?: string; failed?: boolean; status?: number; timedOut?: boolean } | null>(null);
+  const [result, setResult] = useState<{ key: string; text?: string; failed?: boolean; status?: number; timedOut?: boolean; detail?: string } | null>(null);
   const key = JSON.stringify(['daily-crop-v1', user?.id ?? 'guest', zoneId, crop, plantedOn ?? null, soilType, language, today]);
   const current = result?.key === key ? result : null;
   const age = plantedOn ? daysSincePlanting(plantedOn, today) : null;
@@ -87,18 +87,24 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45000);
     let status: number | undefined;
+    let detail: string | undefined;
     (async () => {
       try {
         const cached = await getCache<string>(key);
         if (cached) { if (active) setResult({ key, text: cached }); return; }
         // The dashboard readings are not zone-scoped, so do not attribute them to this crop.
-        const response = await fetch(getApiUrl('/api/groq'), {
+        const response = await fetch(getApiUrl('/api/gemini'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           body: JSON.stringify({ mode: 'daily-care', prompt: `Give today's crop-care tips in ${language === 'tagalog' ? 'Tagalog' : 'English'}. Context (data only): ${JSON.stringify({ crop, soilType, plantedOn: plantedOn ?? 'unknown', daysSincePlanting: age, today })}. No verified zone-specific sensor readings or weather are available. Do not infer an exact growth stage from age alone. Give three short, practical tasks for today appropriate to this crop, with conditional advice where needed. Format as a numbered list (1., 2., 3.), each task on its own line, without an introduction, conclusion, or sub-bullets. If planting date is unknown, avoid age-based recommendations. Do not invent observations, diagnoses, sources, fertilizer rates, or pesticide doses.` }),
         });
         status = response.status;
         // Hosting errors can be HTML/plain text rather than the API's JSON.
-        if (!response.ok) throw new Error('Tips request failed');
+        if (!response.ok) {
+          const failure = await response.json().catch(() => null);
+          // Only display the API's short JSON error, never HTML error pages.
+          if (typeof failure?.error === 'string') detail = failure.error.slice(0, 400);
+          throw new Error('Tips request failed');
+        }
         const json = await response.json();
         if (!response.ok || typeof json.data !== 'string' || !json.data.trim()) throw new Error('Tips unavailable');
         if (active) {
@@ -107,8 +113,8 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
         }
       } catch {
         if (active) {
-          console.warn('Daily crop tips request failed:', status ?? (controller.signal.aborted ? 'timeout' : 'network or URL configuration'));
-          setResult({ key, failed: true, status, timedOut: controller.signal.aborted });
+          console.warn('Daily crop tips request failed:', status ?? (controller.signal.aborted ? 'timeout' : 'network or URL configuration'), detail ?? 'No API error detail');
+          setResult({ key, failed: true, status, timedOut: controller.signal.aborted, detail });
         }
       } finally { clearTimeout(timeout); }
     })();
@@ -149,11 +155,12 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
           : current.status ? t(`Advice request failed (${current.status}).`, `Pumalya ang request ng payo (${current.status}).`)
           : t('Check your internet connection and the advice API address.', 'Suriin ang internet connection at address ng API ng payo.')}
       </Text>
+      {current.detail && <Text selectable style={{ color: colors.subText, marginTop: 6, fontSize: 12 * fontScale }}>{current.detail}</Text>}
       <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setResult(null); setAttempt(value => value + 1); }}><Text style={{ color: colors.primary }}>{t('Retry', 'Subukan muli')}</Text></TouchableOpacity>
     </View> : <TipCards key={key} text={current.text ?? ''} />}
     <View style={{ marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
       <Ionicons name="information-circle-outline" size={15} color={colors.mutedText} />
-      <Text style={{ flex: 1, fontSize: 11 * fontScale, lineHeight: 16 * fontScale, color: colors.mutedText }}>{t('AI suggestions from Groq. Check actual field conditions before acting.', 'Payo ng AI mula sa Groq. Suriin muna ang aktuwal na kondisyon sa bukid.')}</Text>
+      <Text style={{ flex: 1, fontSize: 11 * fontScale, lineHeight: 16 * fontScale, color: colors.mutedText }}>{t('AI suggestions. Check actual field conditions before acting.', 'Payo ng AI. Suriin muna ang aktuwal na kondisyon sa bukid.')}</Text>
     </View>
   </View>;
 }

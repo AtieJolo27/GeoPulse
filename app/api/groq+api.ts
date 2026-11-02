@@ -1,7 +1,12 @@
 import { parseFertilizerAdvice } from '../../lib/fertilizerAdvice';
 import { Groq } from 'groq-sdk';
+import { geminiCompletion } from '../../lib/serverGemini';
 
 export async function POST(request: Request) {
+  return generateAdvice(request);
+}
+
+export async function generateAdvice(request: Request, provider = process.env.AI_PROVIDER?.trim().toLowerCase() || 'groq') {
   try {
     const { prompt, mode, format } = await request.json();
 
@@ -9,13 +14,16 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    const apiKey = process.env.GROQ_API_KEY?.trim();
-    if (!apiKey) return Response.json({ error: 'Groq is not configured on the hosting server. Set GROQ_API_KEY with Sensitive visibility and redeploy.' }, { status: 503 });
-    const groq = new Groq({ apiKey, timeout: 25000, maxRetries: 0 });
+    if (!['groq', 'gemini'].includes(provider)) return Response.json({ error: 'Set AI_PROVIDER to groq or gemini on the hosting server.' }, { status: 503 });
+    const keyName = provider === 'gemini' ? 'GEMINI_PROXY_TOKEN' : 'GROQ_API_KEY';
+    const apiKey = process.env[keyName]?.trim();
+    if (!apiKey) return Response.json({ error: `AI is not configured on the hosting server. Set ${keyName} with Sensitive visibility and redeploy.` }, { status: 503 });
+    const groq = provider === 'groq' ? new Groq({ apiKey, timeout: 25000, maxRetries: 0 }) : null;
+    const complete = provider === 'gemini' ? geminiCompletion : groq!.chat.completions.create.bind(groq!.chat.completions);
 
     const cards = mode === 'fertilizer' && format === 'cards';
     // Call the Groq Inference API safely from the server side
-    const completion = await groq.chat.completions.create({
+    const completion = await complete({
       messages: [
         {
           role: 'system',
@@ -41,7 +49,7 @@ export async function POST(request: Request) {
     const reply = completion.choices[0]?.message?.content?.trim();
 
     if (!reply) {
-      console.warn('Groq returned no displayable content:', completion.choices[0]?.finish_reason);
+      console.warn('AI returned no displayable content:', completion.choices[0]?.finish_reason);
       return Response.json(
         { error: 'AI could not create a recommendation. Please try again.' },
         { status: 502 }
@@ -56,8 +64,17 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     const status = error?.status;
-    console.error('Groq request failed:', status ?? 'network');
-    const message = status === 401 ? 'Groq rejected the hosting API key. Update GROQ_API_KEY and redeploy.' : status === 429 ? 'Groq rate limit reached. Please try again later.' : 'Unable to reach Groq. Please try again.';
-    return Response.json({ error: message }, { status: status === 429 ? 429 : 502 });
+    console.error('AI request failed:', provider, status ?? 'network');
+    const message = error?.code === 'RELAY_NOT_DEPLOYED' ? 'Deploy the Gemini relay on the Render backend before using Gemini.'
+      : error?.code === 'RELAY_UNAUTHORIZED' ? 'Gemini relay access failed. Set the same GEMINI_PROXY_TOKEN on Render and EAS Hosting.'
+      : error?.code === 'NOT_CONFIGURED' ? 'Configure GEMINI_API_KEY on the Render backend.'
+      : error?.code === 'LOCATION_UNSUPPORTED' ? 'Gemini rejected the Render server region. Check the backend deployment region.'
+      : error?.code === 'INVALID_KEY' ? 'Gemini rejected the API key. Update GEMINI_API_KEY on Render and redeploy.'
+      : status === 400 ? 'The AI provider rejected the request. Check the server model and API key configuration.'
+      : status === 503 ? 'The AI provider is temporarily busy or unavailable. Please try again shortly.'
+      : status === 404 ? 'The configured AI model is unavailable. Check GEMINI_MODEL on Render.'
+      : status === 401 || status === 403 ? 'AI provider rejected access. Check the server API key and permissions, then redeploy.'
+      : status === 429 ? 'AI rate limit reached. Please try again later.' : 'Unable to reach the AI provider. Please try again.';
+    return Response.json({ error: message, provider, upstreamStatus: typeof status === 'number' ? status : null }, { status: status === 429 ? 429 : status === 503 ? 503 : 502 });
   }
 }

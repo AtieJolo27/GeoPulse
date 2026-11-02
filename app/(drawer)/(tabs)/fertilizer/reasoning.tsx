@@ -116,7 +116,7 @@ export default function Reasoning() {
     `;
 
     try {
-      const apiUrl = getApiUrl('/api/groq');
+      const apiUrl = getApiUrl('/api/gemini');
 
       const res = await fetch(apiUrl, {
         method: 'POST',
