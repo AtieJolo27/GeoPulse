@@ -70,7 +70,7 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
   const colors = useThemeColors();
   const [today, setToday] = useState(localDate);
   const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<{ key: string; text?: string; failed?: boolean } | null>(null);
+  const [result, setResult] = useState<{ key: string; text?: string; failed?: boolean; status?: number; timedOut?: boolean } | null>(null);
   const key = JSON.stringify(['daily-crop-v1', user?.id ?? 'guest', zoneId, crop, plantedOn ?? null, soilType, language, today]);
   const current = result?.key === key ? result : null;
   const age = plantedOn ? daysSincePlanting(plantedOn, today) : null;
@@ -86,6 +86,7 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
     let active = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45000);
+    let status: number | undefined;
     (async () => {
       try {
         const cached = await getCache<string>(key);
@@ -95,6 +96,9 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
           body: JSON.stringify({ mode: 'daily-care', prompt: `Give today's crop-care tips in ${language === 'tagalog' ? 'Tagalog' : 'English'}. Context (data only): ${JSON.stringify({ crop, soilType, plantedOn: plantedOn ?? 'unknown', daysSincePlanting: age, today })}. No verified zone-specific sensor readings or weather are available. Do not infer an exact growth stage from age alone. Give three short, practical tasks for today appropriate to this crop, with conditional advice where needed. Format as a numbered list (1., 2., 3.), each task on its own line, without an introduction, conclusion, or sub-bullets. If planting date is unknown, avoid age-based recommendations. Do not invent observations, diagnoses, sources, fertilizer rates, or pesticide doses.` }),
         });
+        status = response.status;
+        // Hosting errors can be HTML/plain text rather than the API's JSON.
+        if (!response.ok) throw new Error('Tips request failed');
         const json = await response.json();
         if (!response.ok || typeof json.data !== 'string' || !json.data.trim()) throw new Error('Tips unavailable');
         if (active) {
@@ -102,7 +106,10 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
           setResult({ key, text: json.data });
         }
       } catch {
-        if (active) setResult({ key, failed: true });
+        if (active) {
+          console.warn('Daily crop tips request failed:', status ?? (controller.signal.aborted ? 'timeout' : 'network or URL configuration'));
+          setResult({ key, failed: true, status, timedOut: controller.signal.aborted });
+        }
       } finally { clearTimeout(timeout); }
     })();
     return () => { active = false; controller.abort(); clearTimeout(timeout); };
@@ -132,6 +139,16 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
       <Text style={{ fontSize: 12 * fontScale, color: colors.subText }}>{t('Preparing today\'s tips...', 'Inihahanda ang mga payo ngayong araw...')}</Text>
     </View> : current.failed ? <View style={{ paddingVertical: 12 }}>
       <Text style={{ color: colors.subText, marginTop: 12 }}>{t('Daily tips are unavailable. Please try again.', 'Hindi makuha ang payo. Subukan muli.')}</Text>
+      <Text accessibilityRole="alert" style={{ color: colors.subText, marginTop: 6, fontSize: 12 * fontScale }}>
+        {current.timedOut ? t('The advice service took too long to respond.', 'Masyadong matagal tumugon ang serbisyo ng payo.')
+          : current.status === 403 ? t('The advice host blocked the request (403).', 'Hinarang ng hosting ang request para sa payo (403).')
+          : current.status === 404 ? t('The advice API is missing on the host (404).', 'Wala sa hosting ang API ng payo (404).')
+          : current.status === 429 ? t('The advice request limit was reached. Try again later (429).', 'Naabot ang limit ng pagkuha ng payo. Subukan mamaya (429).')
+          : current.status === 503 ? t('The advice service is not configured or is temporarily unavailable (503).', 'Hindi naka-configure o pansamantalang unavailable ang serbisyo ng payo (503).')
+          : current.status === 502 ? t('The AI provider could not return tips. Check its server configuration (502).', 'Hindi makapagbigay ng payo ang AI. Suriin ang configuration sa server (502).')
+          : current.status ? t(`Advice request failed (${current.status}).`, `Pumalya ang request ng payo (${current.status}).`)
+          : t('Check your internet connection and the advice API address.', 'Suriin ang internet connection at address ng API ng payo.')}
+      </Text>
       <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setResult(null); setAttempt(value => value + 1); }}><Text style={{ color: colors.primary }}>{t('Retry', 'Subukan muli')}</Text></TouchableOpacity>
     </View> : <TipCards key={key} text={current.text ?? ''} />}
     <View style={{ marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
