@@ -1,6 +1,7 @@
 """Authenticated server-to-server Gemini requests, executed in Render's region."""
 import hmac
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -17,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / '.env.local', override=False)
 
 router = APIRouter()
+logger = logging.getLogger('uvicorn.error')
 
 
 def authorize(authorization: str = Header(default='')):
@@ -74,6 +76,13 @@ def gemini_completion(completion: CompletionRequest):
             code = 'LOCATION_UNSUPPORTED'
         elif re.search(r'api.key.*(?:not valid|invalid)|API_KEY_INVALID', message, re.I):
             code = 'INVALID_KEY'
+        logger.warning('Gemini upstream HTTP failure: status=%s code=%s', error.code, code)
         return JSONResponse({'error': {'code': code}}, status_code=error.code)
-    except (URLError, TimeoutError, ValueError):
+    except (URLError, TimeoutError, ValueError) as error:
+        # Do not log exception text: URLs and upstream bodies can contain secrets.
+        reason = error.reason if isinstance(error, URLError) else error
+        category = ('timeout' if isinstance(reason, TimeoutError) else
+                    'invalid_json' if isinstance(error, ValueError) else 'network')
+        logger.warning('Gemini upstream failure: category=%s exception=%s',
+                       category, type(reason).__name__)
         return JSONResponse({'error': {'code': 'UPSTREAM_UNAVAILABLE'}}, status_code=502)

@@ -84,7 +84,12 @@ class GeminiProxyTests(unittest.TestCase):
     def test_network_and_malformed_responses_are_sanitized(self, upstream):
         for error in [URLError('private detail'), TimeoutError('private detail'), ValueError('private detail')]:
             upstream.side_effect = error
-            response = self.post()
+            with self.assertLogs('uvicorn.error', level='WARNING') as logs:
+                response = self.post()
+            self.assertNotIn('private detail', ' '.join(logs.output))
+            expected = ('timeout' if isinstance(error, TimeoutError) else
+                        'invalid_json' if isinstance(error, ValueError) else 'network')
+            self.assertIn(f'category={expected}', ' '.join(logs.output))
             self.assertEqual(response.status_code, 502)
             self.assertNotIn('private detail', response.text)
 
