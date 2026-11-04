@@ -1,6 +1,7 @@
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Response
+from app.services.realtime_sensor import latest_sensor_reading
 from app.services.gemini_proxy import router as gemini_router
 from app.services.sensor_service import save_sensor_data
 from app.utils.sensor_generator import generate_sensor_data
@@ -155,6 +156,18 @@ def create_sensor():
         "message": "Sensor saved successfully",
         "data": sensor
     }
+
+@app.get('/sensor/realtime')
+def get_realtime_sensor(response: Response, zone_id: int | None = Query(default=None, gt=0)):
+    """Return a fresh snapshot; live push updates use Supabase Realtime."""
+    response.headers['Cache-Control'] = 'no-store'
+    try:
+        return latest_sensor_reading(supabase, get_default_farm_id(), zone_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail='Unable to load latest sensor reading') from exc
+
 
 @app.get("/sensor")
 def get_sensors():
