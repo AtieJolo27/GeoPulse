@@ -8,7 +8,7 @@ from app.utils.sensor_generator import generate_sensor_data
 from app.database.supabase import supabase
 from app.machine_learning.predict import predict_crop
 from app.services.prediction_service import save_prediction
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from app.services.history_service import get_prediction_history
 from fastapi.middleware.cors import CORSMiddleware
 from app.machine_learning.predict_fertilizer import predict_fertilizer
@@ -156,6 +156,34 @@ def create_sensor():
         "message": "Sensor saved successfully",
         "data": sensor
     }
+
+class RealtimeSensorInput(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False, extra='forbid')
+
+    soil_moisture: float
+    soil_temperature: float
+    ph: float
+    nitrogen: float
+    phosphorus: float
+    potassium: float
+    air_temperature: float | None = None
+    humidity: float | None = None
+    zone_id: int | None = Field(default=None, gt=0)
+
+
+@app.post('/sensor/realtime', status_code=201)
+def receive_realtime_sensor(sensor: RealtimeSensorInput):
+    """Save device measurements, using the configured collection zone if omitted."""
+    try:
+        result = save_sensor_data(sensor.model_dump(exclude_none=True))
+        if not result.data:
+            raise HTTPException(status_code=500, detail='Sensor insert returned no saved reading')
+        return {'message': 'Sensor saved successfully', 'data': result.data[0]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail='Unable to save sensor reading') from exc
+
 
 @app.get('/sensor/realtime')
 def get_realtime_sensor(response: Response, zone_id: int | None = Query(default=None, gt=0)):
