@@ -91,7 +91,38 @@ class GeminiProxyTests(unittest.TestCase):
                         'invalid_json' if isinstance(error, ValueError) else 'network')
             self.assertIn(f'category={expected}', ' '.join(logs.output))
             self.assertEqual(response.status_code, 502)
+            self.assertEqual(response.json()['error']['code'],
+                             'UPSTREAM_TIMEOUT' if expected == 'timeout' else 'UPSTREAM_UNAVAILABLE')
             self.assertNotIn('private detail', response.text)
+
+    @patch('app.services.gemini_proxy.sleep')
+    @patch('app.services.gemini_proxy.urlopen')
+    def test_temporary_google_failure_retries_once(self, upstream, sleep):
+        body = {'candidates': []}
+        result = unittest.mock.MagicMock()
+        result.__enter__.return_value = io.BytesIO(json.dumps(body).encode())
+        upstream.side_effect = [HTTPError('private', 503, 'private', {}, io.BytesIO(b'{}')), result]
+        self.assertEqual(self.post().json(), body)
+        self.assertEqual(upstream.call_count, 2)
+        sleep.assert_called_once_with(1)
+        self.assertGreater(upstream.call_args.kwargs['timeout'], 0)
+        self.assertLessEqual(upstream.call_args.kwargs['timeout'], 25)
+
+    @patch('app.services.gemini_proxy.sleep')
+    @patch('app.services.gemini_proxy.urlopen')
+    def test_persistent_failure_stops_after_one_retry(self, upstream, sleep):
+        upstream.side_effect = [HTTPError('private', 503, 'private', {}, io.BytesIO(b'{}')) for _ in range(2)]
+        self.assertEqual(self.post().status_code, 503)
+        self.assertEqual(upstream.call_count, 2)
+
+    @patch('app.services.gemini_proxy.monotonic', side_effect=[0, 24])
+    @patch('app.services.gemini_proxy.sleep')
+    @patch('app.services.gemini_proxy.urlopen')
+    def test_does_not_retry_when_time_budget_is_exhausted(self, upstream, sleep, clock):
+        upstream.side_effect = HTTPError('private', 503, 'private', {}, io.BytesIO(b'{}'))
+        self.assertEqual(self.post().status_code, 503)
+        upstream.assert_called_once()
+        sleep.assert_not_called()
 
 
 if __name__ == '__main__':

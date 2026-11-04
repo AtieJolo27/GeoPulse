@@ -1,5 +1,4 @@
 // Server-only: imported by Expo API routes, never by mobile components.
-import { Groq } from 'groq-sdk';
 type CompletionOptions = {
   model?: string;
   reasoning_effort?: string;
@@ -28,19 +27,9 @@ export async function geminiCompletion(options: CompletionOptions) {
     // Never return upstream error bodies: they may contain request details.
     if (!response.ok) {
       const failure = await response.json().catch(() => null);
-      const code = ['LOCATION_UNSUPPORTED', 'INVALID_KEY', 'NOT_CONFIGURED', 'UPSTREAM_ERROR'].includes(failure?.error?.code)
+      const code = ['LOCATION_UNSUPPORTED', 'INVALID_KEY', 'NOT_CONFIGURED', 'UPSTREAM_ERROR', 'UPSTREAM_TIMEOUT', 'UPSTREAM_UNAVAILABLE'].includes(failure?.error?.code)
         ? failure.error.code : response.status === 404 ? 'RELAY_NOT_DEPLOYED'
           : response.status === 401 ? 'RELAY_UNAUTHORIZED' : 'UPSTREAM_ERROR';
-      if (code === 'LOCATION_UNSUPPORTED' && process.env.GROQ_API_KEY?.trim()) {
-        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY.trim(), timeout: 25000, maxRetries: 0 });
-        return await groq.chat.completions.create({
-          messages: options.messages as { role: 'system' | 'user' | 'assistant'; content: string }[],
-          model: 'openai/gpt-oss-20b',
-          reasoning_effort: 'low',
-          max_completion_tokens: options.max_completion_tokens,
-          ...(options.response_format ? { response_format: { type: 'json_object' as const } } : {}),
-        });
-      }
       throw Object.assign(new Error('Gemini request failed'), { status: response.status, code });
     }
     const body = await response.json();

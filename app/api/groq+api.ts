@@ -70,6 +70,8 @@ export async function generateAdvice(request: Request, provider = process.env.AI
       : error?.code === 'NOT_CONFIGURED' ? 'Configure GEMINI_API_KEY on the Render backend.'
       : error?.code === 'LOCATION_UNSUPPORTED' ? 'Gemini rejected the Render server region. Check the backend deployment region.'
       : error?.code === 'INVALID_KEY' ? 'Gemini rejected the API key. Update GEMINI_API_KEY on Render and redeploy.'
+      : error?.code === 'UPSTREAM_TIMEOUT' ? 'Gemini did not respond within 25 seconds. Please try again shortly.'
+      : error?.code === 'UPSTREAM_UNAVAILABLE' ? 'The Render backend could not obtain a valid Gemini response. Check the Gemini upstream failure in Render logs.'
       : status === 400 ? 'The AI provider rejected the request. Check the server model and API key configuration.'
       : status === 503 ? 'The AI provider is temporarily busy or unavailable. Please try again shortly.'
       : status === 404 ? 'The configured AI model is unavailable. Check GEMINI_MODEL on Render.'

@@ -1,4 +1,4 @@
-﻿const { test } = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -113,46 +113,12 @@ test('Gemini classifies location and invalid-key errors without disclosing upstr
   }
 });
 
-test('unsupported Gemini region retries with Groq and preserves the completion contract', async () => {
-  let calls = 0;
-  const complete = gemini(async () => Response.json({ error: { code: 'LOCATION_UNSUPPORTED' } }, { status: 400 }),
-    { GEMINI_PROXY_TOKEN: 'relay-secret', GROQ_API_KEY: 'groq-secret' }, {
-      require: () => ({ Groq: class {
-        constructor(config) { assert.equal(config.apiKey, 'groq-secret'); assert.equal(config.maxRetries, 0); }
-        chat = { completions: { create: async request => {
-          calls++;
-          assert.deepEqual(request.messages, options.messages);
-          assert.equal(request.response_format.type, 'json_object');
-          assert.equal(request.model, 'openai/gpt-oss-20b');
-          assert.equal(request.max_completion_tokens, options.max_completion_tokens);
-          return { choices: [{ message: { content: 'Groq advice' } }] };
-        } } };
-      } }),
-    });
-  assert.equal((await complete(options)).choices[0].message.content, 'Groq advice');
-  assert.equal(calls, 1);
-});
-
-test('other Gemini failures never invoke Groq even when its key is configured', async () => {
-  for (const [status, message] of [[400, 'API key not valid.'], [429, 'Quota exceeded'], [503, 'Unavailable']]) {
-    const complete = gemini(async () => Response.json({ error: { message } }, { status }),
+test('Gemini failures never invoke Groq even when its key is configured', async () => {
+  for (const [status, code] of [[400, 'LOCATION_UNSUPPORTED'], [400, 'INVALID_KEY'], [429, 'UPSTREAM_ERROR'], [502, 'UPSTREAM_UNAVAILABLE'], [503, 'UPSTREAM_ERROR'], [504, 'UPSTREAM_TIMEOUT']]) {
+    const complete = gemini(async () => Response.json({ error: { code } }, { status }),
       { GEMINI_PROXY_TOKEN: 'test', GROQ_API_KEY: 'test' }, {
-        require: () => ({ Groq: class { constructor() { assert.fail('must not fall back'); } } }),
+        require: () => { assert.fail('Gemini must not load another provider'); },
       });
-    await assert.rejects(complete(options), error => error.status === status);
+    await assert.rejects(complete(options), error => error.status === status && error.code === code);
   }
-});
-
-test('Groq fallback failure is returned without retrying Gemini', async () => {
-  let calls = 0;
-  const complete = gemini(async () => {
-    calls++;
-    return Response.json({ error: { code: 'LOCATION_UNSUPPORTED' } }, { status: 400 });
-  }, { GEMINI_PROXY_TOKEN: 'test', GROQ_API_KEY: 'test' }, {
-    require: () => ({ Groq: class {
-      chat = { completions: { create: async () => { throw Object.assign(new Error('Rate limited'), { status: 429 }); } } };
-    } }),
-  });
-  await assert.rejects(complete(options), error => error.status === 429);
-  assert.equal(calls, 1);
 });

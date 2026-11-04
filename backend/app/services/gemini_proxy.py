@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+from time import monotonic, sleep
 from pathlib import Path
 from typing import Literal
 from urllib.error import HTTPError, URLError
@@ -40,6 +41,24 @@ class CompletionRequest(BaseModel):
     json_mode: bool = False
 
 
+def request_google(request):
+    """Retry one temporary HTTP failure within the existing 25-second budget."""
+    deadline = monotonic() + 25
+    for attempt in range(2):
+        timeout = 25 if attempt == 0 else deadline - monotonic()
+        if timeout <= 0:
+            raise TimeoutError()
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return json.load(response)
+        except HTTPError as error:
+            if attempt or error.code not in (500, 502, 503, 504) or deadline - monotonic() < 2:
+                raise
+            logger.warning('Gemini upstream retry: status=%s attempt=2', error.code)
+            error.close()
+            sleep(1)
+
+
 @router.post('/ai/gemini', dependencies=[Depends(authorize)])
 def gemini_completion(completion: CompletionRequest):
     key = os.getenv('GEMINI_API_KEY', '').strip()
@@ -63,8 +82,7 @@ def gemini_completion(completion: CompletionRequest):
         headers={'Content-Type': 'application/json', 'x-goog-api-key': key},
     )
     try:
-        with urlopen(request, timeout=25) as response:
-            return json.load(response)
+        return request_google(request)
     except HTTPError as error:
         # Classify privately; never expose upstream text, prompts, or credentials.
         try:
@@ -85,4 +103,5 @@ def gemini_completion(completion: CompletionRequest):
                     'invalid_json' if isinstance(error, ValueError) else 'network')
         logger.warning('Gemini upstream failure: category=%s exception=%s',
                        category, type(reason).__name__)
-        return JSONResponse({'error': {'code': 'UPSTREAM_UNAVAILABLE'}}, status_code=502)
+        code = 'UPSTREAM_TIMEOUT' if category == 'timeout' else 'UPSTREAM_UNAVAILABLE'
+        return JSONResponse({'error': {'code': code}}, status_code=502)
