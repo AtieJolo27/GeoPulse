@@ -8,7 +8,7 @@ from app.utils.sensor_generator import generate_sensor_data
 from app.database.supabase import supabase
 from app.machine_learning.predict import predict_crop
 from app.services.prediction_service import save_prediction
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.services.history_service import get_prediction_history
 from fastapi.middleware.cors import CORSMiddleware
 from app.machine_learning.predict_fertilizer import predict_fertilizer
@@ -159,6 +159,28 @@ def create_sensor():
 
 class RealtimeSensorInput(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False, extra='forbid')
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_reading(cls, value):
+        if not isinstance(value, dict):
+            return value
+        reading = dict(value)
+        if isinstance(reading.get('data'), dict):
+            outer_zone = reading.get('zone_id')
+            if set(reading) - {'zone_id', 'data'}:
+                raise ValueError('Nested readings only accept zone_id and data at the top level')
+            reading = dict(reading['data'])
+            inner_zone = reading.get('zone_id')
+            if outer_zone is not None and inner_zone is not None and str(outer_zone) != str(inner_zone):
+                raise ValueError('Outer and nested zone_id must match')
+            if outer_zone is not None:
+                reading['zone_id'] = outer_zone
+        # These describe an existing database row, not a new measurement.
+        for field in ('id', 'created_at', 'recorded_at', 'sensor_id', 'reading_status',
+                      'data_source', 'is_valid', 'validation_notes'):
+            reading.pop(field, None)
+        return reading
 
     soil_moisture: float
     soil_temperature: float
