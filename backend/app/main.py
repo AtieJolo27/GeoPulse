@@ -225,7 +225,12 @@ class RealtimeSensorInput(BaseModel):
 def receive_realtime_sensor(sensor: RealtimeSensorInput):
     """Save device measurements, using the configured collection zone if omitted."""
     try:
-        result = save_sensor_data(sensor.model_dump(exclude_none=True, exclude={'conductivity'}))
+        reading = sensor.model_dump(exclude_none=True, exclude={'conductivity'})
+        # The existing nutrient columns are bigint; match the original ESP32
+        # endpoint's truncation rather than sending values such as "0.0".
+        for field in ('nitrogen', 'phosphorus', 'potassium'):
+            reading[field] = int(reading[field])
+        result = save_sensor_data(reading)
         if not result.data:
             raise HTTPException(status_code=500, detail='Sensor insert returned no saved reading')
         return {'message': 'Sensor saved successfully', 'data': result.data[0]}
