@@ -1,6 +1,9 @@
 import os
+import logging
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from app.services.realtime_sensor import latest_sensor_reading
 from app.services.gemini_proxy import router as gemini_router
 from app.services.sensor_service import save_sensor_data
@@ -18,6 +21,21 @@ from app.services.sensor_assignment import get_sensor_zone, assign_sensor_zone
 
 app = FastAPI()
 app.include_router(gemini_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def log_request_validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path == '/sensor/realtime':
+        failures = [
+            {'field': '.'.join(str(part) for part in error['loc']),
+             'type': error['type'], 'message': error['msg']}
+            for error in exc.errors()
+        ]
+        logging.getLogger('uvicorn.error').warning(
+            'Sensor payload rejected: content_type=%s errors=%s',
+            request.headers.get('content-type'), failures,
+        )
+    return await request_validation_exception_handler(request, exc)
 
 app.add_middleware(
     CORSMiddleware,
@@ -180,6 +198,14 @@ class RealtimeSensorInput(BaseModel):
         for field in ('id', 'created_at', 'recorded_at', 'sensor_id', 'reading_status',
                       'data_source', 'is_valid', 'validation_notes'):
             reading.pop(field, None)
+        if 'temperature' in reading:
+            # Compatibility with the original ESP32 payload. These fallback
+            # values are shared measurements, not independent sensor readings.
+            temperature = reading.pop('temperature')
+            reading.setdefault('soil_temperature', temperature)
+            reading.setdefault('air_temperature', temperature)
+            if 'humidity' in reading:
+                reading.setdefault('soil_moisture', reading['humidity'])
         return reading
 
     soil_moisture: float
@@ -188,6 +214,8 @@ class RealtimeSensorInput(BaseModel):
     nitrogen: float
     phosphorus: float
     potassium: float
+    # Accepted from ESP32, but the current storage contract omits conductivity.
+    conductivity: float | None = None
     air_temperature: float | None = None
     humidity: float | None = None
     zone_id: int | None = Field(default=None, gt=0)
@@ -197,7 +225,7 @@ class RealtimeSensorInput(BaseModel):
 def receive_realtime_sensor(sensor: RealtimeSensorInput):
     """Save device measurements, using the configured collection zone if omitted."""
     try:
-        result = save_sensor_data(sensor.model_dump(exclude_none=True))
+        result = save_sensor_data(sensor.model_dump(exclude_none=True, exclude={'conductivity'}))
         if not result.data:
             raise HTTPException(status_code=500, detail='Sensor insert returned no saved reading')
         return {'message': 'Sensor saved successfully', 'data': result.data[0]}
