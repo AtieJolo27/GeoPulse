@@ -3,6 +3,11 @@ import { TabScreenHeader } from '@/app/components/TabScreenHeader';
 import { Stack } from 'expo-router';
 import '../../../global.css';
 
+export const unstable_settings = {
+  anchor: 'histories',
+  initialRouteName: 'histories',
+};
+
 export default function HistoryLayout() {
   const colors = useThemeColors();
   return (

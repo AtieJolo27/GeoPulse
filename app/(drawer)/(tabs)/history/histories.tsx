@@ -1,4 +1,5 @@
 import CropCalendar from '@/components/CropCalendar';
+import SensorAttempts from '@/components/SensorAttempts';
 import CropSuccessChart from '@/app/components/CropSuccessChart';
 import { SectionHeader } from '@/app/components/ui/SectionHeader';
 import { useApp } from '@/app/lib/AppContext';
@@ -22,6 +23,7 @@ export default function History() {
 
   return (
     <ScrollView className="flex-1 px-5 pt-5" style={{ backgroundColor: colors.bg }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 105 }}>
+      <SensorAttempts />
       <CropCalendar />
       <Text style={{ color: colors.subText }}>{t('Harvest results', 'Mga resulta ng ani')}</Text>
       <Text className="mt-1" style={{ fontSize: 25, fontWeight: '800', color: colors.text }}>{t('Crop success rate', 'Antas ng tagumpay ng pananim')}</Text>

@@ -5,7 +5,6 @@ import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
 import DashboardLoadingIndicator from '@/components/DashboardLoadingIndicator';
-import SensorAttempts from '@/components/SensorAttempts';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
 import { exportDashboardReport } from '@/lib/exportDashboardReport';
 import { validPlantingDate } from '@/lib/plantingDate';
@@ -318,7 +317,7 @@ export default function HomeScreen() {
           </Text>
         </View>
         {/* Zone selector */}
-        {(zonesLoading || sensorZoneLoading || fetchingReadings || refreshing) && <DashboardLoadingIndicator readings={!zonesLoading && !sensorZoneLoading} />}
+        {!latestRecord && !refreshing && (zonesLoading || sensorZoneLoading || fetchingReadings) && <DashboardLoadingIndicator readings={!zonesLoading && !sensorZoneLoading} />}
         {error && <View accessibilityRole="alert" style={{ padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 12 }}>
           <Text style={{ color: colors.text }}>{t('Unable to refresh soil readings.', 'Hindi ma-refresh ang datos ng lupa.')}</Text>
           <Text style={{ color: colors.subText, marginTop: 6 }}>{error}</Text>
@@ -470,7 +469,6 @@ export default function HomeScreen() {
 
         {activeZoneId === null && <Text style={{ color: colors.subText, marginTop: 12 }}>{zonesLoading ? t('Loading field zones...', 'Nilo-load ang mga sona...') : zones.length ? t('Select a zone to load its soil readings.', 'Pumili ng sona para ma-load ang datos ng lupa.') : t('No zones available. Retry the connection or add a zone.', 'Walang sona. Subukang kumonekta muli o magdagdag ng sona.')}</Text>}
 
-        <SensorAttempts />
         <View className="my-2">
           {!loading && !error && activeZoneId !== null && data.length === 0 && (
             <Text accessibilityRole="alert" style={{ color: colors.subText, marginTop: 12 }}>

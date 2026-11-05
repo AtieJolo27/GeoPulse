@@ -12,7 +12,11 @@ Each zone has sequential attempt numbers. Only one attempt can be active per far
 (the existing one-sensor-per-farm model). Attempts survive application restarts.
 Repeated Start while active returns the same attempt; repeated Finish returns the
 saved result. Relocation is rejected while testing is active. History shows the
-latest 20 attempts for the selected zone.
+latest 20 attempts for the selected zone. The dashboard displays only its latest
+attempt. Use "View previous attempts" underneath it to open older completed
+attempts for that zone, with timestamps, durations, sample counts and averages.
+While testing is active, an HH:MM:SS counter updates every second using the saved
+start timestamp, so elapsed time survives navigation and application restarts.
 
 Finish stores an immutable snapshot of readings in the collection zone with
 `started_at <= created_at < ended_at`. Server timestamps define the boundaries.

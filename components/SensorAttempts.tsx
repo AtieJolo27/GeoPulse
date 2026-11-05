@@ -3,6 +3,7 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import { backendRequest } from '@/lib/backendRequest';
+import { router } from 'expo-router';
 
 type Attempt = {
   id: number; zone_id: number; attempt_number: number; started_at: string;
@@ -14,8 +15,9 @@ const metrics = [
   ['ph', 'pH', ''], ['nitrogen', 'N', 'ppm'], ['phosphorus', 'P', 'ppm'], ['potassium', 'K', 'ppm'],
 ];
 
-export default function SensorAttempts() {
-  const { activeZoneId, sensorZoneId, t } = useApp();
+export default function SensorAttempts({ history = false, zoneId }: { history?: boolean; zoneId?: number } = {}) {
+  const { activeZoneId: selectedZoneId, sensorZoneId, t } = useApp();
+  const activeZoneId = zoneId ?? selectedZoneId;
   const colors = useThemeColors();
   const [state, setState] = useState<{ zone: number | null; attempts: Attempt[]; active: Attempt | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +46,21 @@ export default function SensorAttempts() {
     return () => { invalidate(); clearTimeout(initial); clearInterval(timer); };
   }, [load]);
 
-  if (activeZoneId === null) return null;
   const current = state?.zone === activeZoneId ? state : null;
   const active = current?.active;
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!active || history) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active, history]);
+  if (activeZoneId === null) return null;
+  const latest = current?.attempts[0];
+  const visibleAttempts = history
+    ? current?.attempts.slice(1).filter(a => a.ended_at)
+    : latest?.ended_at ? [latest] : [];
+  const elapsed = active ? formatDuration(now - Date.parse(active.started_at)) : '';
+
   const perform = async (path: string, body?: object) => {
     if (mutation.current) return;
     mutation.current = true;
@@ -60,24 +74,31 @@ export default function SensorAttempts() {
   };
   const disabled = busy || loading || !current;
   return <View style={{ padding: 16, marginTop: 16, borderRadius: 16, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border }}>
-    <Text accessibilityRole="header" style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{t('Sensor testing attempts', 'Mga attempt ng sensor testing')}</Text>
-    <Text style={{ color: colors.subText, marginTop: 6 }}>{t('Press Start when you turn on the sensor, then Finish when testing ends. These controls record the time; they do not switch the device power.', 'Pindutin ang Simulan kapag binuhay ang sensor, at Tapusin kapag tapos na ang testing. Oras ang nire-record nito; hindi nito kinokontrol ang power ng device.')}</Text>
+    <Text accessibilityRole="header" style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{history ? t('Previous attempts', 'Mga nakaraang attempt') : t('Attempts', 'Mga attempt')}</Text>
+    {!history && !active && <Text style={{ color: colors.subText, marginTop: 6 }}>{t('Start a test to track its duration and averages.', 'Simulan ang test para maitala ang tagal at average.')}</Text>}
     {error && <><Text accessibilityRole="alert" style={{ color: colors.text, marginTop: 8 }}>{error}</Text><Button label={t('Retry', 'Subukan muli')} onPress={() => { void load(); }} blocked={busy} /></>}
     {loading && !current && <Text style={{ color: colors.subText }}>{t('Loading attempts...', 'Nilo-load ang mga attempt...')}</Text>}
-    {active ? <>
-      <Text style={{ color: colors.text, marginTop: 10 }}>{t('● Testing in progress', '● Kasalukuyang testing')} · {t('Attempt', 'Attempt')} {active.attempt_number} · {new Date(active.started_at).toLocaleString()}</Text>
+    {!history && (active ? <>
+      <Text style={{ color: colors.primary, fontSize: 32, fontWeight: '700', marginTop: 16, fontVariant: ['tabular-nums'] }}>{elapsed}</Text>
+      <Text style={{ color: colors.subText }}>{t('Attempt', 'Attempt')} {active.attempt_number} · {t('In progress', 'Kasalukuyan')}</Text>
       {active.zone_id !== activeZoneId && <Text style={{ color: colors.subText }}>{t('The active attempt belongs to another zone. Finish it there before starting here.', 'Nasa ibang sona ang aktibong attempt. Tapusin muna ito roon.')}</Text>}
-      {active.zone_id === activeZoneId && <Button blocked={disabled} label={busy ? t('Saving...', 'Sine-save...') : t('Finish testing', 'Tapusin ang testing')} onPress={() => { void perform(`/sensor-attempts/${active.id}/finish`); }} />}
-    </> : <Button label={t('Start new attempt', 'Simulan ang bagong attempt')} onPress={() => { void perform('/sensor-attempts/start', { zone_id: activeZoneId }); }} blocked={disabled || activeZoneId !== sensorZoneId} />}
-    {activeZoneId !== sensorZoneId && <Text style={{ color: colors.subText, marginTop: 8 }}>{t('Assign the sensor to this zone before starting.', 'Italaga muna ang sensor sa sonang ito bago magsimula.')}</Text>}
-    {current?.attempts.filter(a => a.ended_at).map(a => <View key={a.id} style={{ marginTop: 14, borderTopWidth: 1, borderColor: colors.border, paddingTop: 10 }}>
+      {active.zone_id === activeZoneId && <Button blocked={disabled} label={busy ? t('Saving...', 'Sine-save...') : t('Finish', 'Tapusin')} onPress={() => { void perform(`/sensor-attempts/${active.id}/finish`); }} />}
+    </> : <Button label={t('Start attempt', 'Simulan ang attempt')} onPress={() => { void perform('/sensor-attempts/start', { zone_id: activeZoneId }); }} blocked={disabled || activeZoneId !== sensorZoneId} />)}
+    {!history && activeZoneId !== sensorZoneId && <Text style={{ color: colors.subText, marginTop: 8 }}>{t('Assign the sensor to this zone before starting.', 'Italaga muna ang sensor sa sonang ito bago magsimula.')}</Text>}
+    {visibleAttempts?.map(a => <View key={a.id} style={{ marginTop: 14, borderTopWidth: 1, borderColor: colors.border, paddingTop: 10 }}>
       <Text style={{ color: colors.text, fontWeight: '700' }}>{t('Attempt', 'Attempt')} {a.attempt_number} · {t('Completed', 'Tapos na')}</Text>
       <Text style={{ color: colors.subText }}>{new Date(a.started_at).toLocaleString()} → {new Date(a.ended_at!).toLocaleString()}</Text>
       <Text style={{ color: colors.subText }}>{((Date.parse(a.ended_at!) - Date.parse(a.started_at)) / 60000).toFixed(1)} min · {a.reading_count ?? 0} {t('readings', 'datos')}</Text>
-      <Text style={{ color: colors.text, marginTop: 4 }}>{a.reading_count ? t('Average of recorded samples', 'Average ng naitalang samples') : t('No readings recorded during this attempt.', 'Walang naitalang datos sa attempt na ito.')}</Text>
-      {!!a.reading_count && metrics.map(([key, label, unit]) => <Text key={key} style={{ color: colors.subText }}>{label}: {a.averages?.[key] == null ? '—' : Number(a.averages[key]).toFixed(2)} {unit}</Text>)}
+      <Text style={{ color: colors.text, marginTop: 4 }}>{a.reading_count ? t('Averages', 'Mga average') : t('No readings recorded.', 'Walang naitalang datos.')}</Text>
+      {!!a.reading_count && <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, gap: 8 }}>{metrics.map(([key, label, unit]) => <Text key={key} style={{ color: colors.subText, minWidth: '45%' }}>{label}: {a.averages?.[key] == null ? '—' : Number(a.averages[key]).toFixed(2)} {unit}</Text>)}</View>}
     </View>)}
-    {current && current.attempts.length === 0 && <Text style={{ color: colors.subText, marginTop: 10 }}>{t('No attempts yet.', 'Wala pang attempt.')}</Text>}
+    {!history && <TouchableOpacity accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/(drawer)/(tabs)/history/attempts', params: { zoneId: String(activeZoneId) } })}
+      style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 14, paddingBottom: 6, marginTop: 16, alignItems: 'center' }}>
+      <Text style={{ color: colors.greenText, fontWeight: '800' }}>{t('View previous attempts', 'Tingnan ang mga nakaraang attempt')}</Text>
+    </TouchableOpacity>}
+    {history && current && !visibleAttempts?.length && <Text style={{ color: colors.subText, marginTop: 10 }}>{t('No previous attempts yet.', 'Wala pang nakaraang attempt.')}</Text>}
+    {!history && current && current.attempts.length === 0 && <Text style={{ color: colors.subText, marginTop: 10 }}>{t('No attempts yet.', 'Wala pang attempt.')}</Text>}
   </View>;
 }
 
@@ -90,3 +111,9 @@ const Button = ({ label, onPress, blocked = false }: { label: string; onPress: (
     </TouchableOpacity>
   );
 };
+
+function formatDuration(milliseconds: number) {
+  const seconds = Number.isFinite(milliseconds) ? Math.max(0, Math.floor(milliseconds / 1000)) : 0;
+  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+    .map(value => String(value).padStart(2, '0')).join(':');
+}

@@ -6,9 +6,22 @@ export async function enablePushNotifications(userId: string, language: string, 
   if (Platform.OS === 'web') throw new Error('Push alerts require the Android or iOS app on a physical device.');
   if (Constants.executionEnvironment === 'storeClient') throw new Error('Install a development or production build to enable push notifications.');
   const Notifications = await import('expo-notifications');
-  if (Platform.OS === 'android') await Notifications.setNotificationChannelAsync('farm-alerts', {
-    name: 'Farm alerts', importance: Notifications.AndroidImportance.HIGH,
-  });
+  if (Platform.OS === 'android') {
+    try {
+      await Notifications.setNotificationChannelAsync('farm-alerts', {
+        name: 'Farm alerts',
+        description: 'Crop reminders and soil alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        enableVibrate: true,
+        lightColor: '#28784A',
+        enableLights: true,
+      });
+    } catch (error) {
+      console.warn('Unable to create the farm-alerts notification channel:', error);
+      throw new Error('Android could not initialize notification alerts. Update or rebuild the app and try again. If this continues, share the device model and Android version.');
+    }
+  }
   let permission = await Notifications.getPermissionsAsync();
   if (!permission.granted) permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted) throw new Error('Notifications are disabled. Allow notifications in device settings and try again.');
