@@ -1,0 +1,35 @@
+name: Tests
+
+# Runs the Jest suite on every push and pull request, so the result shows up
+# on GitHub (green check / red X on commits and PRs, and in the Actions tab).
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  jest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Run tests with coverage
+        run: npx jest --ci --coverage --coverageReporters=text-summary --coverageReporters=lcov
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/lcov-report
+          if-no-files-found: ignore
