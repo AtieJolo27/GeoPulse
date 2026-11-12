@@ -1,8 +1,9 @@
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useWindowDimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { Svg, Rect, Text as SvgText } from 'react-native-svg';
 
@@ -25,7 +26,7 @@ const METRICS: Metric[] = [
   { key: 'soil_moisture', label: 'Soil Moisture', labelTl: 'Halumigmig ng Lupa', unit: '%', color: '#6EE7B7' },
 ];
 
-const screenWidth = Dimensions.get('window').width;
+
 
 type TooltipInfo = {
   x: number;
@@ -37,7 +38,8 @@ type TooltipInfo = {
 } | null;
 
 export default function NutrientHistoryChart() {
-  const { t, language, fontScale } = useApp();
+  const { t, language, fontScale, activeZoneId } = useApp();
+  const { width: screenWidth } = useWindowDimensions();
   const colors = useThemeColors();
   const fs = (size: number) => Math.round(size * fontScale);
   const [history, setHistory] = useState<SoilHistoryRow[]>([]);
@@ -45,13 +47,24 @@ export default function NutrientHistoryChart() {
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<TooltipInfo>(null);
 
-  useEffect(() => {
-    (async () => {
-      const data = await getSoilHistory(30);
-      setHistory(data);
-      setLoading(false);
-    })();
-  }, []);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setLoading(true);
+    setTooltip(null);
+    setError(null);
+    void getSoilHistory(30, activeZoneId, true).then(data => {
+      if (active) setHistory(data);
+    }).catch(error => {
+      if (active) { setHistory([]); setError(error instanceof Error ? error.message : 'Unable to load history.'); }
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  // Retry intentionally reruns the focused history request.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeZoneId, retry]));
+
+  if (error) return <View style={{ padding: 20, gap: 12 }}><Text style={{ color: colors.danger }}>{error}</Text><TouchableOpacity accessibilityRole="button" onPress={() => setRetry(value => value + 1)}><Text style={{ color: colors.greenText }}>{t('Retry history', 'Subukang muli')}</Text></TouchableOpacity></View>;
 
   if (loading) {
     return (
@@ -69,9 +82,10 @@ export default function NutrientHistoryChart() {
     );
   }
 
-  const values = history.map((row) => Number(row[selected.key]));
-  const labelStep = Math.max(1, Math.ceil(history.length / 6));
-  const labels = history.map((row, i) =>
+  const plotted = history.filter(row => row[selected.key] != null && Number.isFinite(Number(row[selected.key])));
+  const values = plotted.map((row) => Number(row[selected.key]));
+  const labelStep = Math.max(1, Math.ceil(plotted.length / 6));
+  const labels = plotted.map((row, i) =>
     i % labelStep === 0
       ? new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : ''
@@ -79,8 +93,8 @@ export default function NutrientHistoryChart() {
 
   const handleDataPointClick = (data: { index: number; value: number; x: number; y: number }) => {
     const index = data.index;
-    if (index < 0 || index >= history.length) return;
-    const row = history[index];
+    if (index < 0 || index >= plotted.length) return;
+    const row = plotted[index];
     const dateStr = new Date(row.created_at).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -126,13 +140,13 @@ export default function NutrientHistoryChart() {
         ))}
       </ScrollView>
 
-      <View>
+      {values.length === 0 ? <Text style={{ color: colors.subText }}>{t('No valid readings for this metric.', 'Walang wastong datos para sa sukat na ito.')}</Text> : <View>
         <LineChart
           data={{
             labels,
             datasets: [{ data: values }],
           }}
-          width={screenWidth - 40}
+          width={Math.max(240, screenWidth - 64)}
           height={220}
           yAxisSuffix={selected.unit}
           onDataPointClick={handleDataPointClick}
@@ -156,7 +170,7 @@ export default function NutrientHistoryChart() {
               position: 'absolute',
               top: -40,
               left: 0,
-              width: screenWidth - 40,
+              width: Math.max(240, screenWidth - 64),
               height: 280,
             }}
           >
@@ -200,14 +214,14 @@ export default function NutrientHistoryChart() {
             </SvgText>
           </Svg>
         )}
-      </View>
+      </View>}
 
       <TouchableOpacity
         onPress={() => setTooltip(null)}
         className="mt-2 self-center"
       >
         <Text style={{ fontSize: fs(11), color: colors.mutedText }}>
-          {tooltip ? t('Tap to dismiss', 'I-tap para alisin') : `${t('Last', 'Huling')} ${history.length} ${t('readings', 'pagbasa')}`}
+          {tooltip ? t('Tap to dismiss', 'I-tap para alisin') : `${t('Last', 'Huling')} ${plotted.length} ${t('readings', 'pagbasa')}`}
         </Text>
       </TouchableOpacity>
     </View>

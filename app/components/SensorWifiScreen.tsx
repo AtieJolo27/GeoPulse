@@ -46,6 +46,35 @@ import {
 
 const AP_MODE_IP = "192.168.4.1"; // Fixed IP of the sensor's own provisioning AP
 
+async function sensorRequest(ip: string, path: string, json = true) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`http://${ip.trim()}${path}`, {
+      cache: 'no-store', signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Sensor returned HTTP ${response.status}.`);
+    if (!json) return;
+    try {
+      return await response.json();
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw new Error('Naabot ang sensor pero invalid JSON ang response ng firmware.');
+    }
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Walang sagot ang sensor sa loob ng 10 segundo. Suriin ang IP at Wi-Fi connection.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function sensorError(error: unknown) {
+  return error instanceof Error ? error.message : 'Hindi makakonekta sa sensor.';
+}
+
 export default function SensorWifiScreen() {
   const colors = useThemeColors();
   const styles = {
@@ -72,6 +101,8 @@ export default function SensorWifiScreen() {
 
   const [status, setStatus] = useState<{ connected: boolean; ssid?: string; ip?: string; failed?: boolean } | null>(null); // { connected, ssid, ip, failed }
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   const [mode, setMode] = useState("normal"); // "normal" | "waiting_for_ap" | "provisioning"
 
@@ -91,15 +122,18 @@ export default function SensorWifiScreen() {
     }
 
     setLoadingStatus(true);
+    setFeedback('Kinukuha ang status ng sensor…');
 
     try {
-      const res = await fetch(`http://${sensorIp}/wifi/status`, { cache: "no-store" });
-      const data = await res.json();
+      const data = await sensorRequest(sensorIp, '/wifi/status');
+      if (typeof data?.connected !== 'boolean') throw new Error('Invalid status response: kailangan ng connected boolean mula sa firmware.');
       setStatus(data);
-    } catch {
+      setFeedback('Naabot ang sensor at nakuha ang status.');
+    } catch (error) {
+      setFeedback(sensorError(error));
       Alert.alert(
         "Hindi ma-reach ang sensor",
-        "Siguraduhing magkasama kayo sa parehong Wi-Fi network, at tama ang IP address."
+        sensorError(error)
       );
       setStatus(null);
     } finally {
@@ -125,15 +159,20 @@ export default function SensorWifiScreen() {
           text: "Oo, ituloy",
           style: "destructive",
           onPress: async () => {
+            setResetting(true);
+            setFeedback('Ipinapadala ang Wi-Fi reset…');
             try {
-              await fetch(`http://${sensorIp}/wifi/reset`, { cache: "no-store" });
-            } catch {
-              // The sensor restarts almost immediately after responding,
-              // so a network error here is expected/harmless.
+              await sensorRequest(sensorIp, '/wifi/reset', false);
+              setMode("waiting_for_ap");
+              setStatus(null);
+              setFeedback('');
+            } catch (error) {
+              const message = `${sensorError(error)} Hindi nakumpirma ang reset. Kung lumabas na ang SOIL-SENSOR Wi-Fi, sumali rito at gamitin ang setup button.`;
+              setFeedback(message);
+              Alert.alert('Hindi nakumpirma ang reset', message);
+            } finally {
+              setResetting(false);
             }
-
-            setMode("waiting_for_ap");
-            setStatus(null);
           },
         },
       ]
@@ -306,6 +345,7 @@ export default function SensorWifiScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Wi-Fi ng Soil Sensor</Text>
+      <Text style={styles.paragraph}>Kung naka-connect ka sa Wi-Fi ng hardware, gamitin ang 192.168.4.1 o ang gateway IP nito.</Text>
 
       <Text style={styles.label}>LAN IP ng sensor</Text>
       <TextInput
@@ -318,13 +358,15 @@ export default function SensorWifiScreen() {
         keyboardType="numbers-and-punctuation"
       />
 
-      <TouchableOpacity style={styles.button} onPress={checkStatus} disabled={loadingStatus}>
+      <TouchableOpacity style={styles.button} onPress={checkStatus} disabled={loadingStatus || resetting}>
         {loadingStatus ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.buttonText}>I-check ang Status</Text>
         )}
       </TouchableOpacity>
+
+      {!!feedback && <Text accessibilityLiveRegion="polite" style={styles.paragraph}>{feedback}</Text>}
 
       {status && (
         <View style={styles.statusBox}>
@@ -341,8 +383,11 @@ export default function SensorWifiScreen() {
         </View>
       )}
 
-      <TouchableOpacity style={styles.buttonDanger} onPress={resetWifi}>
-        <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>
+      <TouchableOpacity style={styles.buttonDanger} onPress={resetWifi} disabled={resetting || loadingStatus}>
+        {resetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.buttonSecondary} disabled={resetting || loadingStatus} onPress={() => setMode('provisioning')}>
+        <Text style={styles.buttonSecondaryText}>Naka-connect na ako sa Wi-Fi ng sensor — setup</Text>
       </TouchableOpacity>
     </View>
   );

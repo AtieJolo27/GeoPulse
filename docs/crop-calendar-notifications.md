@@ -1,6 +1,6 @@
 # Crop calendar and push notifications
 
-The calendar is in the **Manage** tab, above the existing harvest history and report export. Tap a day in the month grid to add harvest/fertilizer tasks. Gold and blue markers identify saved and AI-preview dates.
+The calendar is in **Manage ? Calendar**. Manage also has Sensor tests, History & reports (sensor charts and PDF export), and Harvest results categories. Tap a day in the month grid to add harvest/fertilizer tasks. Gold and blue markers identify saved and AI-preview dates.
 
 If the calendar table has not been installed, dates are saved on this device, scoped to the signed-in account and selected zone. The app labels this mode and disables cloud reminder registration. Apply the migration below, then reopen Manage or tap Check cloud sync to upload pending dates. Device-only dates do not generate server push reminders. Clearing app/browser storage before syncing removes these local dates.
 
@@ -8,7 +8,7 @@ Apply `supabase/migrations/202610300001_crop_calendar_push.sql` to the app's Sup
 
 Deploy the Expo API routes to the existing hosting service with server-only `GROQ_API_KEY`. The calendar uses `/api/crop-schedule`; native builds need `EXPO_PUBLIC_GROQ_API_URL` as for existing AI advice. Predictions are estimates for farmer review, not a trained harvest model. Unknown varieties and growing conditions affect dates. Fertilizer suggestions are review dates, not automatic application instructions.
 
-Build and install a new Android/iOS development or production binary with `expo-notifications`. Configure EAS FCM v1 credentials for Android and APNs credentials for iOS. Expo Go and web cannot register for these push alerts. Test on physical devices. Enable alerts in the crop calendar after signing in. Enabling subscribes the farmer to moisture alerts for currently accessible zones. Disabling removes this device's token; signing out also unregisters it. The OS permission remains under device settings.
+Build and install a new Android/iOS development or production binary with `expo-notifications`. Configure EAS FCM v1 credentials for Android and APNs credentials for iOS. Expo Go and web cannot register for these push alerts. Test on physical devices. Native builds automatically register alerts after signing in and retry on foreground. The OS requests permission when it has not been decided; denied permission is respected. The calendar retains manual enable/retry and disable controls. Disabling is remembered per account on this device; signing out only unregisters the token. Registration subscribes the farmer to moisture alerts for currently accessible zones. Disabling removes this device's token; signing out also unregisters it. The OS permission remains under device settings.
 
 Install `backend/requirements-push.txt` for the independent worker. Run `python -m app.services.push_worker` from `backend/` every minute using a server cron job, with `SUPABASE_URL` and a server-only Supabase **service role** `SUPABASE_KEY`. Never put this key in an `EXPO_PUBLIC_` variable. Set `EXPO_ACCESS_TOKEN` if Expo push security is enabled. The worker is a private command, not a public HTTP endpoint. It must run independently of the phone or a sleeping web service.
 

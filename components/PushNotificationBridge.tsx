@@ -1,13 +1,30 @@
 import { useApp } from '@/app/lib/AppContext';
-import { supabase } from '@/lib/supabaseClient';
+import { enablePushNotifications } from '@/lib/pushNotifications';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 export default function PushNotificationBridge() {
-  const { user, language, setActiveZoneId, zones } = useApp();
+  const { user, language, setActiveZoneId, zones, zonesLoading, loading } = useApp();
   const router = useRouter();
+  useEffect(() => {
+    if (!user || loading || zonesLoading || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return;
+    let disposed = false;
+    let pending = false;
+    const register = async () => {
+      if (disposed || pending) return;
+      pending = true;
+      try {
+        await enablePushNotifications(user.id, language, zones.map(zone => zone.id), true);
+      } catch (error) {
+        console.warn('Unable to automatically register push alerts:', error instanceof Error ? error.message : 'Unknown error');
+      } finally { pending = false; }
+    };
+    void register();
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void register(); });
+    return () => { disposed = true; listener.remove(); };
+  }, [user, loading, zonesLoading, language, zones]);
   useEffect(() => {
     if (!user || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return;
     let disposed = false;
@@ -28,15 +45,6 @@ export default function PushNotificationBridge() {
       remove = () => subscription.remove();
       const last = await Notifications.getLastNotificationResponseAsync();
       if (!disposed && last) handle(last);
-      const token = localStorage.getItem('geopulse_push_token');
-      if (token && !disposed) {
-        const { error } = await supabase.from('push_devices').update({ language }).eq('token', token).eq('user_id', user.id);
-        if (error) console.warn('Unable to refresh push preferences.');
-        if (zones.length) {
-          const result = await supabase.from('push_zone_subscriptions').upsert(zones.map(zone => ({ user_id: user.id, zone_id: zone.id })), { onConflict: 'user_id,zone_id' });
-          if (result.error) console.warn('Unable to refresh moisture subscriptions.');
-        }
-      }
     })().catch(() => console.warn('Unable to initialize push notifications.'));
     return () => { disposed = true; remove(); };
   }, [user, zones, language, router, setActiveZoneId]);

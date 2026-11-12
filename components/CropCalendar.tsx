@@ -131,6 +131,7 @@ function CalendarEditor() {
     </View>)}
     <View style={{ borderTopWidth: 1, borderColor: colors.border, paddingTop: 16, gap: 10 }}>
       <Text style={{ color: colors.text, fontWeight: '800' }}>{t('Reminder settings', 'Mga setting ng paalala')}</Text>
+      <Text style={{ color: colors.subText }}>{t('Push alerts register automatically after sign-in. Allow notifications when your phone asks. You can disable alerts below.', 'Awtomatikong sine-set up ang push alerts pagkatapos mag-sign in. Payagan ang notifications kapag hiniling ng phone. Maaari mong i-disable ang alerts sa ibaba.')}</Text>
       {button(t('Enable push alerts', 'I-enable ang push alerts'), async () => { if (!user) throw new Error('Sign in first.'); await enablePushNotifications(user.id, language, zones.map(z => z.id)); setMessage(t('Push alerts enabled.', 'Naka-enable ang push alerts.')); }, deviceOnly)}
       {button(t('Disable alerts on this device', 'I-disable ang alerts sa device'), async () => { await disablePushNotifications(); setMessage(t('Push alerts disabled.', 'Naka-disable ang push alerts.')); })}
     </View>

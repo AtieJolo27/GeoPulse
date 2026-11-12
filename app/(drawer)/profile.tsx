@@ -7,6 +7,9 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import {
   ActivityIndicator,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
   Alert,
   Modal,
   ScrollView,
@@ -218,32 +221,19 @@ export default function ProfileScreen() {
   // If user is not logged in, show login form
   if (!user) {
     return (
-      <View className="flex-1" style={{ backgroundColor: bgColor, paddingBottom: insets.bottom }}>
-        {/* Header — no back button here on purpose; login is the auth gate */}
-        <View className="pt-12 pb-8 px-6 rounded-b-3xl" style={{ backgroundColor: headerBg, paddingTop: insets.top + 12 }}>
-          <View className="flex-row items-center justify-between mb-4">
-            <View style={{ width: 24 }} />
-            <Text className="text-white font-bold text-lg">
-              {t('Login', 'Mag-login')}
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
-          <View className="items-center">
-            <View className="w-20 h-20 bg-white/20 rounded-full items-center justify-center mb-3 relative">
-              <Ionicons name="person" size={40} color="white" />
+      <ImageBackground source={require('../../assets/images/backgroundpiclogin.jpg')} resizeMode="cover" style={{ flex: 1, backgroundColor: '#123E26' }}>
+        <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(7, 30, 17, 0.5)' }} />
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 }}>
+          <View style={{ width: '100%', maxWidth: 420 }}>
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}><Ionicons name="leaf" size={34} color="#FFFFFF" /></View>
+              <Text style={{ color: '#FFFFFF', fontSize: fs(34), fontWeight: '800', letterSpacing: -1 }}>GeoPulse</Text>
+              <Text style={{ color: '#E0EFE3', fontSize: fs(14), marginTop: 6, textAlign: 'center' }}>{t('Your farm, closer at hand.', 'Ang iyong sakahan, abot-kamay.')}</Text>
             </View>
-            <Text className="text-white font-bold text-xl">
-              GeoPulse
-            </Text>
-          </View>
-        </View>
-
-        {/* Login Form */}
-        <ScrollView className="flex-1 px-4 -mt-4">
-          <View className="rounded-2xl p-4 mb-4 shadow-sm" style={{ backgroundColor: cardBg, borderColor: borderColor, borderWidth: 1 }}>
-            <Text className="font-semibold text-sm uppercase tracking-wide mb-3" style={{ color: subTextColor }}>
-              {t('Welcome Back', 'Maligayang Pagbabalik')}
-            </Text>
+          <View style={{ borderRadius: 28, padding: 26, backgroundColor: cardBg, borderWidth: 1, borderColor, shadowColor: '#000000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 8 }}>
+            <Text style={{ color: textColor, fontSize: fs(25), fontWeight: '800', textAlign: 'center' }}>{t('Welcome back', 'Maligayang pagbabalik')}</Text>
+            <Text style={{ color: subTextColor, fontSize: fs(14), textAlign: 'center', marginTop: 8, marginBottom: 26 }}>{t('Sign in to check on your farm.', 'Mag-sign in para kumustahin ang iyong sakahan.')}</Text>
 
             {/* Email Input */}
             <View className="mb-4">
@@ -335,8 +325,10 @@ export default function ProfileScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          </View>
         </ScrollView>
-      </View>
+        </KeyboardAvoidingView>
+      </ImageBackground>
     );
   }
 

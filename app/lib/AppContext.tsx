@@ -140,7 +140,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await disablePushNotifications();
+      await disablePushNotifications(false);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);

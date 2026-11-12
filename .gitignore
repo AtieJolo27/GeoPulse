@@ -44,3 +44,8 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase server credentials
+*-firebase-adminsdk-*.json
+
+/dist-android-check/
