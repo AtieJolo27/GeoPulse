@@ -15,7 +15,7 @@ export const supabase = createClient(
   supabasePublishableKey,
   {
     auth: {
-      storage: localStorage,
+      storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

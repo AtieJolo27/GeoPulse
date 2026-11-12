@@ -1,5 +1,6 @@
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
-import { computeOverallScore } from '@/lib/soilHealthScore';
+import { computeSoilHealthScore } from '@/lib/soilHealthScore';
+import { getSoilTypeRanges } from '@/lib/soilTypeRanges';
 import { useApp } from '@/app/lib/AppContext';
 import { useThemeColors } from '@/app/lib/useThemeColors';
 import React, { useEffect, useState } from 'react';
@@ -17,10 +18,6 @@ type TooltipInfo = {
   date: string;
 } | null;
 
-function computeHealthScore(row: SoilHistoryRow): number {
-  return computeOverallScore(row);
-}
-
 function getHealthColor(score: number): string {
   if (score >= 80) return '#16A34A';
   if (score >= 60) return '#EAB308';
@@ -28,15 +25,10 @@ function getHealthColor(score: number): string {
   return '#DC2626';
 }
 
-function getHealthLabel(score: number): string {
-  if (score >= 80) return 'Excellent';
-  if (score >= 60) return 'Good';
-  if (score >= 40) return 'Fair';
-  return 'Poor';
-}
-
 export default function SoilHealthChart() {
-  const { t, isDarkMode, fontScale } = useApp();
+  const { t, isDarkMode, fontScale, activeZoneId, zones } = useApp();
+  const ranges = getSoilTypeRanges(zones.find(zone => zone.id === activeZoneId)?.soil_type) ?? {};
+  const scoreReading = (row: SoilHistoryRow) => computeSoilHealthScore(row, ranges);
   const colors = useThemeColors();
   const fs = (size: number) => Math.round(size * fontScale);
   const [history, setHistory] = useState<SoilHistoryRow[]>([]);
@@ -44,12 +36,18 @@ export default function SoilHealthChart() {
   const [tooltip, setTooltip] = useState<TooltipInfo>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setHistory([]);
+    setTooltip(null);
     (async () => {
-      const data = await getSoilHistory(30);
+      const data = await getSoilHistory(30, activeZoneId);
+      if (cancelled) return;
       setHistory(data);
       setLoading(false);
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [activeZoneId]);
 
   if (loading) {
     return (
@@ -59,19 +57,21 @@ export default function SoilHealthChart() {
     );
   }
 
-  if (history.length === 0) {
+  const completeHistory = history.filter(row => scoreReading(row).overall !== null);
+  const omitted = history.length - completeHistory.length;
+  if (completeHistory.length === 0) {
     return (
       <View className="p-5">
-        <Text style={{ fontSize: fs(14), color: colors.mutedText }}>{t('No historical data yet.', 'Wala pang makasaysayang datos.')}</Text>
+        <Text style={{ fontSize: fs(14), color: colors.mutedText }}>{t('No complete sensor readings yet.', 'Wala pang kumpletong datos ng sensor.')}</Text>
       </View>
     );
   }
 
-  const healthScores = history.map((row) => computeHealthScore(row));
+  const healthScores = completeHistory.map((row) => scoreReading(row).overall!);
   const latestScore = healthScores[healthScores.length - 1];
 
-  const labelStep = Math.max(1, Math.ceil(history.length / 6));
-  const labels = history.map((row, i) =>
+  const labelStep = Math.max(1, Math.ceil(completeHistory.length / 6));
+  const labels = completeHistory.map((row, i) =>
     i % labelStep === 0
       ? new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : ''
@@ -79,8 +79,8 @@ export default function SoilHealthChart() {
 
   const handleDataPointClick = (data: { index: number; value: number; x: number; y: number }) => {
     const index = data.index;
-    if (index < 0 || index >= history.length) return;
-    const row = history[index];
+    if (index < 0 || index >= completeHistory.length) return;
+    const row = completeHistory[index];
     const dateStr = new Date(row.created_at).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -91,7 +91,7 @@ export default function SoilHealthChart() {
       x: data.x,
       y: data.y,
       value: data.value,
-      label: getHealthLabel(data.value),
+      label: scoreReading(row).needsAttention ? 'Check readings' : 'Within bands',
       date: dateStr,
     });
   };
@@ -100,33 +100,19 @@ export default function SoilHealthChart() {
     <View className="p-3">
       <View className="flex-row items-center justify-between mb-3">
         <Text style={{ fontWeight: 'bold', fontSize: fs(18), color: colors.text }}>
-          {t('Soil Health Score', 'Iskor ng Kalusugan ng Lupa')}
+          {t('Sensor condition index', 'Index ng kondisyon')}
         </Text>
         <View className="flex-row items-center" style={{ backgroundColor: colors.cardBgAlt, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
           <View className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: getHealthColor(latestScore) }} />
           <Text style={{ fontWeight: 'bold', fontSize: fs(14), color: getHealthColor(latestScore) }}>
-            {latestScore}% - {t(getHealthLabel(latestScore), getHealthLabel(latestScore))}
+            {latestScore}/100 - {scoreReading(completeHistory[completeHistory.length - 1]).needsAttention ? t('Check readings', 'Suriin ang datos') : t('Within bands', 'Nasa saklaw')}
           </Text>
         </View>
       </View>
-      <View className="flex-row justify-center mb-3 flex-wrap" style={{ backgroundColor: colors.cardBgAlt, borderColor: colors.cardBorder, borderWidth: 1, borderRadius: 12, padding: 8 }}>
-        <View className="flex-row items-center mr-3 mb-1">
-          <View className="w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: '#16A34A' }} />
-          <Text style={{ fontSize: fs(11), color: colors.subText }}>{t('Excellent', 'Napakahusay')} (80+)</Text>
-        </View>
-        <View className="flex-row items-center mr-3 mb-1">
-          <View className="w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: '#EAB308' }} />
-          <Text style={{ fontSize: fs(11), color: colors.subText }}>{t('Good', 'Mabuti')} (60-79)</Text>
-        </View>
-        <View className="flex-row items-center mr-3 mb-1">
-          <View className="w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: '#F97316' }} />
-          <Text style={{ fontSize: fs(11), color: colors.subText }}>{t('Fair', 'Katamtaman')} (40-59)</Text>
-        </View>
-        <View className="flex-row items-center mb-1">
-          <View className="w-2.5 h-2.5 rounded-full mr-1" style={{ backgroundColor: '#DC2626' }} />
-          <Text style={{ fontSize: fs(11), color: colors.subText }}>{t('Poor', 'Mahina')} (below 40)</Text>
-        </View>
-      </View>
+      <Text style={{ color: colors.subText, fontSize: fs(12), marginBottom: 10 }}>
+        {t('Provisional index. Check individual readings; a high average can hide an out-of-range parameter.', 'Pansamantalang index. Suriin ang bawat datos kahit mataas ang average.')}
+        {omitted > 0 ? ` ${omitted} ${t('incomplete readings omitted.', 'kulang na datos ang hindi isinama.')}` : ''}
+      </Text>
       <View>
         <LineChart
           data={{
@@ -135,7 +121,7 @@ export default function SoilHealthChart() {
           }}
           width={screenWidth - 40}
           height={220}
-          yAxisSuffix="%"
+          yAxisSuffix=""
           yAxisInterval={1}
           fromZero={true}
           onDataPointClick={handleDataPointClick}
@@ -150,7 +136,6 @@ export default function SoilHealthChart() {
             propsForBackgroundLines: { strokeDasharray: '4', stroke: colors.chartGrid },
             propsForVerticalLabels: { fontSize: 10 },
           }}
-          bezier
           style={{ borderRadius: 16 }}
         />
         {tooltip && (
@@ -181,7 +166,7 @@ export default function SoilHealthChart() {
               fontWeight="bold"
               textAnchor="middle"
             >
-              {tooltip.value}%
+              {tooltip.value}/100
             </SvgText>
             <SvgText
               x={tooltip.x}

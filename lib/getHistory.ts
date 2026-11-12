@@ -13,16 +13,19 @@ export interface SoilHistoryRow {
   soil_moisture: number;
 }
 
-export async function getSoilHistory(limit = 30): Promise<SoilHistoryRow[]> {
+export async function getSoilHistory(limit = 30, zoneId?: number | null, throwOnError = false): Promise<SoilHistoryRow[]> {
+  if (zoneId == null) return [];
   const { data, error } = await supabase
-    .from('crop_predictions')
+    .from('sensor_readings')
     .select('id, created_at, nitrogen, phosphorus, potassium, ph, air_temperature, soil_temperature, humidity, soil_moisture')
-    .order('created_at', { ascending: true })
+    .eq('zone_id', zoneId)
+    .order('created_at', { ascending: false })
     .limit(limit);
 
   if (error) {
+    if (throwOnError) throw new Error(`Unable to load sensor history: ${error.message}`);
     console.log('history fetch error:', error);
     return [];
   }
-  return data ?? [];
+  return (data ?? []).reverse();
 }

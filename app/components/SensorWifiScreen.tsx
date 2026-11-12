@@ -1,3 +1,4 @@
+import { useThemeColors } from '@/app/lib/useThemeColors';
 /**
  * SensorWifiScreen.js
  *
@@ -34,7 +35,6 @@ import { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Linking,
     Platform,
     StyleSheet,
@@ -46,21 +46,69 @@ import {
 
 const AP_MODE_IP = "192.168.4.1"; // Fixed IP of the sensor's own provisioning AP
 
+async function sensorRequest(ip: string, path: string, json = true) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(`http://${ip.trim()}${path}`, {
+      cache: 'no-store', signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Sensor returned HTTP ${response.status}.`);
+    if (!json) return;
+    try {
+      return await response.json();
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw new Error('Naabot ang sensor pero invalid JSON ang response ng firmware.');
+    }
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Walang sagot ang sensor sa loob ng 10 segundo. Suriin ang IP at Wi-Fi connection.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function sensorError(error: unknown) {
+  return error instanceof Error ? error.message : 'Hindi makakonekta sa sensor.';
+}
+
 export default function SensorWifiScreen() {
+  const colors = useThemeColors();
+  const styles = {
+    ...baseStyles,
+    container: { ...baseStyles.container, backgroundColor: colors.bg },
+    title: { ...baseStyles.title, color: colors.text },
+    label: { ...baseStyles.label, color: colors.subText },
+    paragraph: { ...baseStyles.paragraph, color: colors.text },
+    input: { ...baseStyles.input, color: colors.text, backgroundColor: colors.inputBg, borderColor: colors.border },
+    buttonSecondary: { ...baseStyles.buttonSecondary, backgroundColor: colors.cardBgAlt },
+    buttonSecondaryText: { ...baseStyles.buttonSecondaryText, color: colors.text },
+    statusBox: { ...baseStyles.statusBox, backgroundColor: colors.cardBg },
+    statusLine: { ...baseStyles.statusLine, color: colors.text },
+    networkRow: { ...baseStyles.networkRow, backgroundColor: colors.cardBg, borderColor: colors.border },
+    networkRowSelected: { ...baseStyles.networkRowSelected, backgroundColor: colors.cardBgAlt },
+    networkName: { ...baseStyles.networkName, color: colors.text },
+    networkInfo: { ...baseStyles.networkInfo, color: colors.subText },
+  };
   // The sensor's LAN IP while connected to your home Wi-Fi.
   // There's no reliable auto-discovery without mDNS/native modules,
   // so we let the user type it in once (e.g. from their router's
   // client list, or from whatever your FastAPI/Supabase backend logs).
   const [sensorIp, setSensorIp] = useState("");
 
-  const [status, setStatus] = useState(null); // { connected, ssid, ip, failed }
+  const [status, setStatus] = useState<{ connected: boolean; ssid?: string; ip?: string; failed?: boolean } | null>(null); // { connected, ssid, ip, failed }
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [feedback, setFeedback] = useState('');
 
   const [mode, setMode] = useState("normal"); // "normal" | "waiting_for_ap" | "provisioning"
 
-  const [networks, setNetworks] = useState([]);
+  const [networks, setNetworks] = useState<{ ssid: string; auth: number; rssi: number }[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [selectedSsid, setSelectedSsid] = useState(null);
+  const [selectedSsid, setSelectedSsid] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
 
@@ -74,15 +122,18 @@ export default function SensorWifiScreen() {
     }
 
     setLoadingStatus(true);
+    setFeedback('Kinukuha ang status ng sensor…');
 
     try {
-      const res = await fetch(`http://${sensorIp}/wifi/status`, { cache: "no-store" });
-      const data = await res.json();
+      const data = await sensorRequest(sensorIp, '/wifi/status');
+      if (typeof data?.connected !== 'boolean') throw new Error('Invalid status response: kailangan ng connected boolean mula sa firmware.');
       setStatus(data);
-    } catch (err) {
+      setFeedback('Naabot ang sensor at nakuha ang status.');
+    } catch (error) {
+      setFeedback(sensorError(error));
       Alert.alert(
         "Hindi ma-reach ang sensor",
-        "Siguraduhing magkasama kayo sa parehong Wi-Fi network, at tama ang IP address."
+        sensorError(error)
       );
       setStatus(null);
     } finally {
@@ -108,15 +159,20 @@ export default function SensorWifiScreen() {
           text: "Oo, ituloy",
           style: "destructive",
           onPress: async () => {
+            setResetting(true);
+            setFeedback('Ipinapadala ang Wi-Fi reset…');
             try {
-              await fetch(`http://${sensorIp}/wifi/reset`, { cache: "no-store" });
-            } catch (err) {
-              // The sensor restarts almost immediately after responding,
-              // so a network error here is expected/harmless.
+              await sensorRequest(sensorIp, '/wifi/reset', false);
+              setMode("waiting_for_ap");
+              setStatus(null);
+              setFeedback('');
+            } catch (error) {
+              const message = `${sensorError(error)} Hindi nakumpirma ang reset. Kung lumabas na ang SOIL-SENSOR Wi-Fi, sumali rito at gamitin ang setup button.`;
+              setFeedback(message);
+              Alert.alert('Hindi nakumpirma ang reset', message);
+            } finally {
+              setResetting(false);
             }
-
-            setMode("waiting_for_ap");
-            setStatus(null);
           },
         },
       ]
@@ -151,7 +207,7 @@ export default function SensorWifiScreen() {
       const resultsRes = await fetch(`http://${AP_MODE_IP}/scan/results`, { cache: "no-store" });
       const resultsData = await resultsRes.json();
       setNetworks(resultsData.networks || []);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-scan",
         "Siguraduhing naka-connect ang phone mo sa Wi-Fi ng sensor (SOIL-SENSOR-XXXX)."
@@ -185,7 +241,7 @@ export default function SensorWifiScreen() {
       } else {
         Alert.alert("May mali", data.message || "Hindi na-set ang Wi-Fi.");
       }
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Hindi ma-reach ang sensor",
         "Siguraduhing naka-connect ka pa rin sa SOIL-SENSOR-XXXX network."
@@ -243,11 +299,10 @@ export default function SensorWifiScreen() {
           )}
         </TouchableOpacity>
 
-        <FlatList
-          data={networks}
-          keyExtractor={(item) => item.ssid}
-          renderItem={({ item }) => (
+        <View style={{ marginTop: 12 }}>
+          {networks.map(item => (
             <TouchableOpacity
+              key={item.ssid}
               style={[
                 styles.networkRow,
                 selectedSsid === item.ssid && styles.networkRowSelected,
@@ -259,15 +314,15 @@ export default function SensorWifiScreen() {
               </Text>
               <Text style={styles.networkInfo}>{item.rssi} dBm</Text>
             </TouchableOpacity>
-          )}
-          style={{ marginTop: 12, maxHeight: 260 }}
-        />
+          ))}
+        </View>
 
         {selectedSsid && (
           <View style={{ marginTop: 16 }}>
             <Text style={styles.paragraph}>Napili: {selectedSsid}</Text>
             <TextInput
               style={styles.input}
+              placeholderTextColor={colors.subText}
               placeholder="Wi-Fi password"
               secureTextEntry
               value={password}
@@ -290,10 +345,12 @@ export default function SensorWifiScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Wi-Fi ng Soil Sensor</Text>
+      <Text style={styles.paragraph}>Kung naka-connect ka sa Wi-Fi ng hardware, gamitin ang 192.168.4.1 o ang gateway IP nito.</Text>
 
       <Text style={styles.label}>LAN IP ng sensor</Text>
       <TextInput
         style={styles.input}
+              placeholderTextColor={colors.subText}
         placeholder="hal. 192.168.1.22"
         value={sensorIp}
         onChangeText={setSensorIp}
@@ -301,13 +358,15 @@ export default function SensorWifiScreen() {
         keyboardType="numbers-and-punctuation"
       />
 
-      <TouchableOpacity style={styles.button} onPress={checkStatus} disabled={loadingStatus}>
+      <TouchableOpacity style={styles.button} onPress={checkStatus} disabled={loadingStatus || resetting}>
         {loadingStatus ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.buttonText}>I-check ang Status</Text>
         )}
       </TouchableOpacity>
+
+      {!!feedback && <Text accessibilityLiveRegion="polite" style={styles.paragraph}>{feedback}</Text>}
 
       {status && (
         <View style={styles.statusBox}>
@@ -324,15 +383,18 @@ export default function SensorWifiScreen() {
         </View>
       )}
 
-      <TouchableOpacity style={styles.buttonDanger} onPress={resetWifi}>
-        <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>
+      <TouchableOpacity style={styles.buttonDanger} onPress={resetWifi} disabled={resetting || loadingStatus}>
+        {resetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Palitan ang Wi-Fi</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.buttonSecondary} disabled={resetting || loadingStatus} onPress={() => setMode('provisioning')}>
+        <Text style={styles.buttonSecondaryText}>Naka-connect na ako sa Wi-Fi ng sensor — setup</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f4f7f5" },
+const baseStyles = StyleSheet.create({
+  container: { padding: 4, backgroundColor: "#f4f7f5" },
   title: { fontSize: 22, fontWeight: "700", marginBottom: 16, color: "#222" },
   label: { fontSize: 14, color: "#555", marginBottom: 6 },
   paragraph: { fontSize: 15, color: "#333", marginBottom: 16, lineHeight: 21 },

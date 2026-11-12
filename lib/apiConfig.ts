@@ -9,12 +9,23 @@ import Constants from 'expo-constants';
  *
  * In development, Expo's Metro server runs on your machine's LAN IP.
  * We use Constants.expoConfig?.hostUri which gives us "192.168.x.x:8081".
- * In production, replace with your deployed API endpoint.
+ * Release APKs use EXPO_PUBLIC_GROQ_API_URL (the EAS Hosting base URL).
  */
 export function getApiBaseUrl(): string {
+  // Groq's Expo API route is hosted independently of the Render backend.
+  const hostedUrl = process.env.EXPO_PUBLIC_GROQ_API_URL?.trim().replace(/\/+$/, '');
+  if (hostedUrl) {
+    const url = new URL(hostedUrl);
+    if (url.protocol !== 'https:') throw new Error('The hosted Groq API must use HTTPS.');
+    return hostedUrl;
+  }
   if (Platform.OS === 'web') {
     // Web can use relative paths
     return '';
+  }
+
+  if (!__DEV__) {
+    throw new Error('Set EXPO_PUBLIC_GROQ_API_URL to your EAS Hosting base URL before building the APK.');
   }
 
   // Native platforms (iOS / Android)
@@ -26,13 +37,6 @@ export function getApiBaseUrl(): string {
     }
   } catch {
     // Fall through to default
-  }
-
-  // Fallback for production or if hostUri is unavailable
-  // Update this to your production API endpoint when deploying
-  const productionUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (productionUrl) {
-    return productionUrl;
   }
 
   // Local dev fallback for simulator (iOS simulator can use localhost)

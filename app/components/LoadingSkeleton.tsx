@@ -1,6 +1,7 @@
 import { useThemeColors } from '@/app/lib/useThemeColors';
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Animated, ScrollView, View } from 'react-native';
+import { useApp } from '@/app/lib/AppContext';
 
 interface LoadingSkeletonProps {
   width?: number | string;
@@ -16,7 +17,7 @@ export function LoadingSkeleton({
   style,
 }: LoadingSkeletonProps) {
   const colors = useThemeColors();
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const [opacity] = useState(() => new Animated.Value(0.3));
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -72,8 +73,14 @@ export function SensorSkeleton() {
 
 export function DashboardSkeleton() {
   const colors = useThemeColors();
+  const { t } = useApp();
   return (
-    <View className="px-7 py-5" style={{ backgroundColor: colors.bg, flex: 1 }}>
+    <ScrollView accessibilityRole="progressbar" accessibilityLabel={t('Loading dashboard', 'Kinukuha ang dashboard')} accessibilityState={{ busy: true }} className="px-7 py-5" contentContainerStyle={{ paddingBottom: 100 }} style={{ backgroundColor: colors.bg, flex: 1 }}>
+      <View style={{ marginTop: 8, marginBottom: 24, gap: 8 }}>
+        <LoadingSkeleton width={90} height={14} />
+        <LoadingSkeleton width="85%" height={30} />
+        <LoadingSkeleton width="95%" height={13} />
+      </View>
       {/* Zone buttons skeleton */}
       <LoadingSkeleton width={120} height={18} style={{ marginBottom: 12 }} />
       <View className="flex-row gap-2 mb-4">
@@ -90,7 +97,7 @@ export function DashboardSkeleton() {
       >
         <LoadingSkeleton width={24} height={24} borderRadius={12} style={{ marginBottom: 12 }} />
         <View className="flex-row gap-3">
-          <LoadingSkeleton width={71} height={71} borderRadius={35.5} />
+          <LoadingSkeleton width={120} height={120} borderRadius={60} />
           <View className="flex-1 gap-2">
             {[1, 2, 3, 4].map((i) => (
               <LoadingSkeleton key={i} width="100%" height={16} />
@@ -102,20 +109,23 @@ export function DashboardSkeleton() {
       {/* Sensors skeleton */}
       <LoadingSkeleton width={140} height={18} style={{ marginBottom: 8 }} />
       <View className="flex-row gap-2 mb-2">
-        {[1, 2, 3].map((i) => (
+        {[1, 2].map((i) => (
           <SensorSkeleton key={i} />
         ))}
       </View>
       <View className="flex-row gap-2 mb-4">
-        {[1, 2, 3].map((i) => (
+        {[1, 2].map((i) => (
           <SensorSkeleton key={i} />
         ))}
       </View>
 
       {/* Urgent notifications skeleton */}
+      <View className="flex-row gap-2 mb-4">
+        {[1, 2].map((i) => <SensorSkeleton key={i} />)}
+      </View>
       <LoadingSkeleton width={180} height={18} style={{ marginBottom: 8 }} />
       <LoadingSkeleton width="100%" height={80} borderRadius={12} />
-    </View>
+    </ScrollView>
   );
 }
 

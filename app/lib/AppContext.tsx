@@ -1,4 +1,7 @@
+import { validPlantingDate } from '@/lib/plantingDate';
+import { backendRequest } from '@/lib/backendRequest';
 import { supabase } from '@/lib/supabaseClient';
+import { disablePushNotifications } from '@/lib/pushNotifications';
 import { User } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
@@ -11,6 +14,9 @@ interface Zone {
   name_en: string;
   name_tl: string;
   soil_type: string;
+  current_crop: string | null;
+  planted_on?: string | null;
+  updated_at: string | null;
 }
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://capstone-eem0.onrender.com';
@@ -32,9 +38,16 @@ interface AppContextType {
 
   zones: Zone[];
   zonesLoading: boolean;
+  zonesError: string | null;
+  sensorZoneError: string | null;
+  sensorZoneLoading: boolean;
+  retryZoneLoading: () => Promise<void>;
   activeZoneId: number | null;
+  sensorZoneId: number | null;
+  assignSensorToZone: (zoneId: number) => Promise<void>;
   setActiveZoneId: (zoneId: number) => Promise<void>;
   createZone: (nameEn: string, nameTl: string, soilType: string) => Promise<Zone | null>;
+  setPlantedCrop: (zoneId: number, cropName: string, plantedOn: string) => Promise<boolean>;
   refreshZones: () => Promise<void>;
 }
 
@@ -55,9 +68,16 @@ const AppContext = createContext<AppContextType>({
 
   zones: [],
   zonesLoading: true,
+  zonesError: null,
+  sensorZoneError: null,
+  sensorZoneLoading: true,
+  retryZoneLoading: async () => { },
   activeZoneId: null,
+  sensorZoneId: null,
+  assignSensorToZone: async () => { },
   setActiveZoneId: async () => { },
   createZone: async () => null,
+  setPlantedCrop: async () => false,
   refreshZones: async () => { },
 });
 
@@ -71,7 +91,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [zones, setZones] = useState<Zone[]>([]);
   const [zonesLoading, setZonesLoading] = useState<boolean>(true);
+  const [zonesError, setZonesError] = useState<string | null>(null);
+  const [sensorZoneError, setSensorZoneError] = useState<string | null>(null);
+  const [sensorZoneLoading, setSensorZoneLoading] = useState(true);
   const [activeZoneId, setActiveZoneIdState] = useState<number | null>(null);
+  const [sensorZoneId, setSensorZoneId] = useState<number | null>(null);
 
   const isDarkMode = theme === 'dark';
 
@@ -116,7 +140,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      await disablePushNotifications(false);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
     } catch (error: any) {
       console.error('Logout error:', error);
@@ -131,12 +157,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // =========================================================
 
   const refreshZones = useCallback(async () => {
+    setZonesLoading(true);
+    setZonesError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/zones`);
-      if (!res.ok) throw new Error(`Zone request failed (${res.status})`);
-      const json = await res.json();
-      setZones(json.data ?? []);
+      const json = await backendRequest('/zones');
+      if (!Array.isArray(json.data)) throw new Error('The server returned an invalid zone list.');
+      setZones(json.data.map((zone: Zone & { name?: string }) => ({
+        ...zone,
+        name_en: zone.name_en || zone.name || `Zone ${zone.id}`,
+        name_tl: zone.name_tl || zone.name_en || zone.name || `Sona ${zone.id}`,
+      })));
     } catch (err) {
+      setZonesError(err instanceof Error ? err.message : 'Unable to load zones. Please retry.');
       console.warn('Failed to fetch zones:', err);
     } finally {
       setZonesLoading(false);
@@ -144,35 +176,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const fetchActiveZone = useCallback(async () => {
+    setSensorZoneLoading(true);
+    setSensorZoneError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/device/active-zone`);
-      if (!res.ok) throw new Error(`Active-zone request failed (${res.status})`);
-      const json = await res.json();
-      if (json.zone) {
-        setActiveZoneIdState(json.zone.id);
-      }
+      const json = await backendRequest('/device/active-zone');
+      setSensorZoneId(json.zone?.id ?? null);
+      // A late response must not replace a zone the user has already selected.
+      setActiveZoneIdState(current => current ?? json.zone?.id ?? null);
     } catch (err) {
+      setSensorZoneError(err instanceof Error ? err.message : 'Unable to verify the sensor assignment.');
       console.warn('Failed to fetch active zone:', err);
+    } finally {
+      setSensorZoneLoading(false);
     }
   }, []);
 
-  const setActiveZoneId = useCallback(async (zoneId: number) => {
-    // Update local state immediately so the UI feels instant,
-    // then sync to the backend so the ESP32's next reading gets
-    // tagged with this zone too.
-    setActiveZoneIdState(zoneId);
+  const retryZoneLoading = useCallback(async () => {
+    await Promise.all([refreshZones(), fetchActiveZone()]);
+  }, [refreshZones, fetchActiveZone]);
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/device/active-zone`, {
+  const setActiveZoneId = useCallback(async (zoneId: number) => {
+    // Viewing a zone must never redirect the physical sensor's readings.
+    setActiveZoneIdState(zoneId);
+  }, []);
+
+  const assignSensorToZone = useCallback(async (zoneId: number) => {
+      // Re-read the assignment so another client's changes are not silently lost.
+      const json = await backendRequest('/device/active-zone');
+      const currentId = json.zone?.id ?? null;
+      if (currentId !== sensorZoneId) {
+        setSensorZoneId(currentId);
+        throw new Error('The sensor assignment changed. Review its zone and confirm again.');
+      }
+      await backendRequest('/device/active-zone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zone_id: zoneId }),
       });
-      if (!res.ok) throw new Error(`Active-zone update failed (${res.status})`);
-    } catch (err) {
-      console.warn('Failed to set active zone on backend:', err);
-    }
-  }, []);
+      setSensorZoneId(zoneId);
+      setSensorZoneError(null);
+  }, [sensorZoneId]);
 
   const createZone = useCallback(async (nameEn: string, nameTl: string, soilType: string): Promise<Zone | null> => {
     try {
@@ -203,6 +246,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Initial network loading belongs to provider startup; user retries use the same callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshZones();
     fetchActiveZone();
   }, [refreshZones, fetchActiveZone]);
@@ -230,6 +275,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe(); // was `subscription.unsubscribe` (missing call) before
     };
   }, []);
+  const setPlantedCrop = useCallback(async (zoneId: number, cropName: string, plantedOn: string): Promise<boolean> => {
+    if (!validPlantingDate(plantedOn)) return false;
+    try {
+      const { data, error } = await supabase
+        .from('zones')
+        .update({
+          current_crop: cropName,
+          planted_on: plantedOn,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', zoneId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setZones((prev) =>
+        prev.map((z) => (z.id === zoneId ? { ...z, ...data } : z))
+      );
+      return true;
+    } catch (err) {
+      console.warn('Failed to set planted crop:', err);
+      return false;
+    }
+  }, []);
 
   return (
     <AppContext.Provider
@@ -246,11 +316,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loading,
         fontSize, setFontSize, fontScale,
 
-        zones,
+                zones,
         zonesLoading,
+        zonesError,
+        sensorZoneError,
+        sensorZoneLoading,
+        retryZoneLoading,
         activeZoneId,
+        sensorZoneId,
+        assignSensorToZone,
         setActiveZoneId,
         createZone,
+        setPlantedCrop,
         refreshZones,
       }}
     >
@@ -264,3 +341,4 @@ export function useApp() {
 }
 
 export type { FontSize, Zone };
+
