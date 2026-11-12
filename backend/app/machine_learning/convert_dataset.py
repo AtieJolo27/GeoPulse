@@ -1,8 +1,12 @@
 import pandas as pd
 import random
+from pathlib import Path
 
-# Load original Kaggle dataset
-df = pd.read_csv("app/machine_learning/datasets/Crop_recommendation.csv")
+DATASET_DIR = Path(__file__).resolve().parent / "datasets"
+
+# Keep the supplied source, including its guidance and references, unchanged.
+df = pd.read_csv(DATASET_DIR / "crop_recommendation_dataset_ph_full.csv")
+random_generator = random.Random(42)
 
 # Rename columns to match our system
 df = df.rename(columns={
@@ -23,7 +27,7 @@ df["soil_moisture"] = (
 
 # Soil temperature is usually slightly lower than air temperature
 df["soil_temperature"] = df["air_temperature"].apply(
-    lambda t: round(t - random.uniform(0.5, 2.5), 2)
+    lambda t: round(t - random_generator.uniform(0.5, 2.5), 2)
 )
 
 # Reorder columns
@@ -37,17 +41,12 @@ df = df[
         "nitrogen",
         "phosphorus",
         "potassium",
-        "label"
+        "crop"
     ]
 ]
 
-# Rename label -> crop
-df = df.rename(columns={
-    "label": "crop"
-})
-
 # Save new dataset
-output = "app/machine_learning/datasets/soil_crop_dataset.csv"
+output = DATASET_DIR / "soil_crop_dataset.csv"
 
 df.to_csv(output, index=False)
 
