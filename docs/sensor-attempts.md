@@ -3,6 +3,18 @@ the physical sensor is powered on; Finish when the test ends. The app does not
 control device power or infer power-off from missing readings. Firmware is not
 included in this repository. Automatic power events require device integration.
 
+Pause before lifting or moving the probe to another spot within the same zone.
+Wait for the probe to settle, then select Resume recording. Pause is a saved,
+server-timed state and survives navigation or app restarts. Raw telemetry continues
+to be stored and current parameters continue to refresh every five seconds, with
+the last reading timestamp and a warning after one minute without fresh data.
+Pausing does not control the physical sensor or guarantee probe accuracy.
+The recording timer and completed duration exclude pauses. Finish also works
+while paused. Switching collection zones still requires finishing the attempt.
+
+Apply `supabase/migrations/202611140001_attempt_pauses.sql` after the original
+attempts migration, then deploy the backend and app together.
+
 Apply `supabase/migrations/202611020001_sensor_attempts.sql` and deploy the backend
 before using these controls. The backend uses the existing DEFAULT_FARM_ID and
 service-role database connection, following the current sensor assignment API.
@@ -20,6 +32,8 @@ start timestamp, so elapsed time survives navigation and application restarts.
 
 Finish stores an immutable snapshot of readings in the collection zone with
 `started_at <= created_at < ended_at`. Server timestamps define the boundaries.
+Readings in each pause interval (`pause <= created_at < resume`, or Finish when
+still paused) are excluded from the snapshot, including delayed paused readings.
 Each metric is an arithmetic sample mean; SQL AVG excludes null values. No samples
 means no result, not zero. This is not a time-weighted average. Delayed readings
 arriving after Finish are not included in the saved result. Readings must be saved
@@ -37,3 +51,10 @@ Database acceptance checks after migration, using a development farm:
 5. Finish an attempt without readings and verify count zero and null averages.
 6. Try two simultaneous Starts and verify one active attempt. Try relocation while
    active and verify it is rejected. Reopen the app and verify active state persists.
+7. Start, record moisture 10, pause, record moisture 90, resume, record moisture 30,
+   then Finish. Verify count 2 and moisture average 20. Repeat Pause and Resume
+   requests to verify they do not create duplicate intervals or add duration twice.
+8. Finish while paused; verify the pause closes, the final timer excludes its full
+   duration, and all paused readings are excluded. Repeat Finish and verify no change.
+9. Reopen while paused, verify the timer stays stopped and parameters still update.
+   Verify a reading exactly at Pause is excluded and exactly at Resume is included.

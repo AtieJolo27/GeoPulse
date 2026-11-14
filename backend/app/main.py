@@ -70,7 +70,25 @@ def list_sensor_attempts(zone_id: int):
             .eq('zone_id', zone_id).order('attempt_number', desc=True).limit(20).execute()).data
     active = (supabase.table('sensor_attempts').select('*').eq('farm_id', farm_id)
               .is_('ended_at', 'null').limit(1).execute()).data
-    return {'attempts': rows, 'active': active[0] if active else None}
+    latest = (supabase.table('sensor_readings')
+              .select('created_at,soil_moisture,soil_temperature,ph,nitrogen,phosphorus,potassium')
+              .eq('zone_id', zone_id).order('created_at', desc=True).limit(1).execute()).data
+    return {'attempts': rows, 'active': active[0] if active else None,
+            'latest_reading': latest[0] if latest else None}
+
+
+@app.post('/sensor-attempts/{attempt_id}/pause')
+def pause_sensor_attempt(attempt_id: int):
+    return {'attempt': supabase.rpc('set_sensor_attempt_paused', {
+        'p_farm_id': get_default_farm_id(), 'p_attempt_id': attempt_id, 'p_paused': True,
+    }).execute().data}
+
+
+@app.post('/sensor-attempts/{attempt_id}/resume')
+def resume_sensor_attempt(attempt_id: int):
+    return {'attempt': supabase.rpc('set_sensor_attempt_paused', {
+        'p_farm_id': get_default_farm_id(), 'p_attempt_id': attempt_id, 'p_paused': False,
+    }).execute().data}
 
 
 @app.post('/sensor-attempts/start')
