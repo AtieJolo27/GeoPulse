@@ -1,3 +1,4 @@
+import { TutorialTarget } from '@/shared/appLib/TutorialContext';
 import HistoryChart from '@/shared/components/HistoryChart';
 import CropCalendar from '@/components/CropCalendar';
 import SensorAttempts from '@/components/SensorAttempts';
@@ -29,10 +30,12 @@ export default function History() {
       <ScreenIntro icon="grid-outline" eyebrow={t('FARM WORKSPACE', 'PAMAMAHALA NG BUKID')}
         title={t('Plan. Measure. Grow.', 'Magplano. Sumukat. Magpalago.')}
         description={t('Your calendar, sensor tests, and field records in one place.', 'Ang iyong kalendaryo, mga test, at tala ng bukid sa iisang lugar.')} />
+      <TutorialTarget id="manage-categories">
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 20 }} contentContainerStyle={{ gap: 8 }}>
         {([{ key: 'calendar', en: 'Calendar', tl: 'Kalendaryo', icon: 'calendar-outline' }, { key: 'attempts', en: 'Sensor tests', tl: 'Mga test', icon: 'pulse-outline' }, { key: 'history', en: 'History & reports', tl: 'Kasaysayan at report', icon: 'stats-chart-outline' }, { key: 'harvest', en: 'Harvest results', tl: 'Resulta ng ani', icon: 'leaf-outline' }] as const).map(item => <TouchableOpacity key={item.key} accessibilityRole="tab" accessibilityState={{ selected: category === item.key }} onPress={() => setCategory(item.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, borderWidth: 1, borderColor: category === item.key ? colors.primary : colors.border, backgroundColor: category === item.key ? colors.primary : colors.cardBg }}><Ionicons name={item.icon} size={17} color={category === item.key ? '#FFFFFF' : colors.greenText} /><Text style={{ color: category === item.key ? '#FFFFFF' : colors.text, fontWeight: '700' }}>{t(item.en, item.tl)}</Text></TouchableOpacity>)}
       </ScrollView>
-      <Text style={{ color: colors.subText, marginBottom: 8 }}>{zones.find(zone => zone.id === activeZoneId) ? t(zones.find(zone => zone.id === activeZoneId)!.name_en, zones.find(zone => zone.id === activeZoneId)!.name_tl) : t('Select a zone on Home to view its records.', 'Pumili ng sona sa Home para makita ang mga tala.')}</Text>
+      </TutorialTarget>
+      <TutorialTarget id="manage-zone"><Text style={{ color: colors.subText, marginBottom: 8 }}>{zones.find(zone => zone.id === activeZoneId) ? t(zones.find(zone => zone.id === activeZoneId)!.name_en, zones.find(zone => zone.id === activeZoneId)!.name_tl) : t('Select a zone on Home to view its records.', 'Pumili ng sona sa Home para makita ang mga tala.')}</Text></TutorialTarget>
       {category === 'calendar' && <CropCalendar />}
       {category === 'attempts' && <SensorAttempts />}
       {category === 'history' && <HistoryChart key={activeZoneId} />}

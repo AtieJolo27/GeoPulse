@@ -1,10 +1,13 @@
+import DailyCropTips from '@/components/DailyCropTips';
+import { TutorialTarget, TutorialScrollView } from '@/shared/appLib/TutorialContext';
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { useApp } from '@/shared/appLib/AppContext';
 import { ScreenIntro } from '@/shared/components/ui/ScreenIntro';
 import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { supabase } from '@/lib/supabaseClient';
 import { loadZoneRecommendations } from '@/lib/zoneRecommendations';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 import RecommendationCard from './RecommendationCard';
 import GroqFertilizerRecommendations from './GroqFertilizerRecommendations';
 import FertilizerEvidence, { FertilizerSource } from './FertilizerEvidence';
@@ -26,14 +29,15 @@ export default function ZoneRecommendations({ kind }: { kind: 'crop' | 'fertiliz
   const colors = useThemeColors();
   const zone = zones.find(item => item.id === activeZoneId);
   // Remount on zone/crop changes so previous results cannot appear under a new zone.
-  return <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 110 }}>
-    <ScreenIntro icon={kind === 'crop' ? 'leaf-outline' : 'nutrition-outline'}
+  return <TutorialScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 110 }}>
+    <TutorialTarget id={`${kind}-intro`}><ScreenIntro icon={kind === 'crop' ? 'leaf-outline' : 'nutrition-outline'}
       eyebrow={kind === 'crop' ? t('CROP PLANNING', 'PAGPAPLANO NG PANANIM') : t('SOIL NUTRITION', 'NUTRISYON NG LUPA')}
       title={kind === 'crop' ? t('Find your next crop', 'Piliin ang susunod na pananim') : t('Care for your soil', 'Alagaan ang iyong lupa')}
-      description={kind === 'crop' ? t('Explore crop options based on your soil readings.', 'Suriin ang mga pananim batay sa datos ng iyong lupa.') : t('Review nutrient needs and fertilizer guidance for your field.', 'Suriin ang sustansya at gabay sa pataba para sa iyong bukid.')} />
-    {zone && <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.cardBgAlt, borderRadius: 12, marginBottom: 20 }}><Ionicons name="location-outline" size={15} color={colors.greenText} /><Text style={{ fontWeight: '600', color: colors.greenText }}>{t(zone.name_en, zone.name_tl)}</Text></View>}
+      description={kind === 'crop' ? t('Explore crop options based on your soil readings.', 'Suriin ang mga pananim batay sa datos ng iyong lupa.') : t('Review nutrient needs and fertilizer guidance for your field.', 'Suriin ang sustansya at gabay sa pataba para sa iyong bukid.')} /></TutorialTarget>
+    {zone && <View style={{ maxWidth: '100%', alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.cardBgAlt, borderRadius: 12, marginBottom: 20 }}><Ionicons name="location-outline" size={15} color={colors.greenText} /><Text style={{ flexShrink: 1, fontWeight: '600', color: colors.greenText }}>{t(zone.name_en, zone.name_tl)}</Text></View>}
+    {kind === 'crop' && zone?.current_crop && <View style={{ marginBottom: 24 }}><DailyCropTips zoneId={zone.id} crop={zone.current_crop} plantedOn={zone.planted_on} soilType={zone.soil_type} /></View>}
     {zone ? kind === 'fertilizer' ? <GroqFertilizerRecommendations key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} crop={zone.current_crop} /> : <ZoneResults key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} kind={kind} /> : <Text style={{ marginTop: 16, color: colors.subText }}>{t('Select a zone on the dashboard to see recommendations.', 'Pumili ng sona sa dashboard para makita ang mga mungkahi.')}</Text>}
-  </ScrollView>;
+  </TutorialScrollView>;
 }
 
 function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertilizer' }) {
@@ -92,19 +96,10 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
   const ranked = rows.filter(row => typeof row.name === 'string' && Number.isFinite(row.score) && row.score > 0 && row.score <= 100).sort((a, b) => b.score - a.score);
   return <View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-      <Text accessibilityRole="header" style={{ flexShrink: 1, fontSize: 16 * fontScale, fontWeight: '700', color: colors.text }}>{t('Suggestions', 'Mga mungkahi')}</Text>
-      <TouchableOpacity
-        accessibilityRole="button"
+      <Text accessibilityRole="header" style={{ flexShrink: 1, fontSize: 19 * fontScale, fontWeight: '700', color: colors.text }}>{kind === 'crop' ? t('Suggested crops', 'Mga mungkahing pananim') : t('Suggestions', 'Mga mungkahi')}</Text>
+      <TutorialTarget id="crop-refresh"><RefreshButton loading={state.loading} retry={!!state.error}
         accessibilityLabel={t('Refresh recommendations', 'I-refresh ang mga mungkahi')}
-        accessibilityState={{ disabled: state.loading, busy: state.loading }}
-        activeOpacity={0.7}
-        disabled={state.loading}
-        onPress={() => { setNewReadingAvailable(false); setAttempt(value => value + 1); }}
-        style={{ minHeight: 44, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardBg, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: state.loading ? 0.7 : 1 }}
-      >
-        {state.loading ? <ActivityIndicator size="small" color={colors.greenText} /> : <Ionicons name="refresh-outline" size={18} color={colors.greenText} />}
-        <Text style={{ color: colors.greenText, fontWeight: '700', fontSize: 13 * fontScale }}>{state.loading ? t('Loading...', 'Naglo-load...') : state.error ? t('Retry', 'Subukan muli') : t('Refresh', 'I-refresh')}</Text>
-      </TouchableOpacity>
+        onPress={() => { setNewReadingAvailable(false); setAttempt(value => value + 1); }} /></TutorialTarget>
     </View>
     {newReadingAvailable && !state.loading && <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, marginBottom: 16, borderRadius: 12, backgroundColor: colors.progressTrack }}>
       <Ionicons name="information-circle-outline" size={18} color={colors.greenText} />
@@ -114,8 +109,8 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
       <Ionicons name={state.loading ? 'hourglass-outline' : state.error ? 'cloud-offline-outline' : 'leaf-outline'} size={28} color={colors.mutedText} />
       <Text accessibilityRole={state.error ? 'alert' : 'text'} style={{ color: colors.subText, fontSize: 13 * fontScale, lineHeight: 20 * fontScale, textAlign: 'center' }}>{state.loading ? t('Preparing suggestions from this zone\'s latest readings...', 'Inihahanda ang mga mungkahi mula sa pinakahuling datos ng sonang ito...') : state.error ?? t('No sensor readings are linked to this zone yet.', 'Wala pang datos ng sensor na nakaugnay sa sonang ito.')}</Text>
     </View> : <>
-      <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginBottom: 12 }}>{t('Based on this zone\'s latest recorded reading', 'Batay sa pinakahuling datos ng sonang ito')}: {new Date(result.reading.created_at).toLocaleString()}</Text>
-      {!soilTargetMode && <Text style={{ color: colors.subText, fontSize: 13 * fontScale, marginBottom: 16 }}>{t('Model scores rank options; they are not verified suitability ratings or chances of success.', 'Iniraranggo ng iskor ang mga opsyon; hindi ito napatunayang kaangkupan o tsansa ng tagumpay.')}</Text>}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 14 }}><Ionicons name="time-outline" size={14} color={colors.mutedText} /><Text style={{ flex: 1, color: colors.mutedText, fontSize: 12 * fontScale, lineHeight: 17 * fontScale }}>{t('Latest recorded reading', 'Pinakahuling naitalang datos')}: {new Date(result.reading.created_at).toLocaleString()}</Text></View>
+
       {kind === 'fertilizer' && <Text style={{ color: colors.subText, marginBottom: 16 }}>{plantedCrop ? `${t('Currently planted crop', 'Kasalukuyang pananim')}: ${plantedCrop.replace(/_/g, ' ')}` : t('No crop planted: balance nutrients toward the app reference ranges.', 'Walang nakatanim: itugma ang sustansiya sa mga batayang saklaw ng app.')}</Text>}
       {kind === 'fertilizer' && result.nutrient_assessment && <View style={{ marginBottom: 16, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, gap: 10 }}>
         <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 * fontScale }}>{t('Current soil nutrients', 'Kasalukuyang sustansiya ng lupa')}</Text>
@@ -136,6 +131,7 @@ function ZoneResults({ zoneId, kind }: { zoneId: number; kind: 'crop' | 'fertili
         <Text style={{ color: colors.subText, fontSize: 12 * fontScale, lineHeight: 18 * fontScale }}>{t('Choose sources only for the nutrients that are low. Product grades vary; check the label. A local agricultural technician should determine the amount from a soil test, soil depth, bulk density and field area. Retest after treatment; adding fertilizer cannot guarantee a specific sensor ppm.', 'Pumili lamang para sa kulang na sustansiya. Iba-iba ang grado ng produkto; suriin ang label. Ipakuwenta sa lokal na agricultural technician ang dami gamit ang soil test, lalim, bulk density at lawak. Muling sukatin matapos maglagay; hindi garantisado ang tiyak na ppm.')}</Text>
       </View>}
       {(kind === 'crop' ? ranked.slice(0, 3) : ranked).map((row, index) => <View key={row.name} style={{ marginBottom: 12 }}><RecommendationCard name={row.name} score={row.score} rank={index + 1} kind={kind} plantedCrop={kind === 'fertilizer' ? plantedCrop : undefined} featured={index === 0} fontScale={fontScale} zoneId={zoneId} readingId={result.reading!.id} />{kind === 'fertilizer' && <FertilizerEvidence inDataset={row.in_dataset} sources={row.sources} />}</View>)}
+      {!soilTargetMode && <Text style={{ color: colors.subText, fontSize: 12 * fontScale, marginTop: 4, marginBottom: 16, lineHeight: 18 * fontScale }}>{t('Model scores rank options; they are not verified suitability ratings or chances of success.', 'Iniraranggo ng iskor ang mga opsyon; hindi ito napatunayang kaangkupan o tsansa ng tagumpay.')}</Text>}
       {!soilTargetMode && !ranked.length && <Text style={{ color: colors.subText }}>{kind === 'fertilizer' ? result.fertilizer_error ?? t('No fertilizer recommendations are available for the currently planted crop. Refresh or update the recommendation server.', 'Walang rekomendasyon sa pataba para sa kasalukuyang pananim. I-refresh o i-update ang server.') : t('No valid model suggestions available.', 'Walang wastong mungkahi ang modelo.')}</Text>}
     </>}
   </View>;

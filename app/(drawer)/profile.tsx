@@ -292,7 +292,7 @@ export default function ProfileScreen() {
                   setLoginError(error.message ?? 'Login failed');
                 }
               }}
-              className="flex-row items-center justify-center rounded-2xl p-4 mb-6"
+              className="flex-row items-center justify-center rounded-2xl p-4"
               style={{ backgroundColor: colors.primary }}
               disabled={loading}
             >
@@ -304,26 +304,7 @@ export default function ProfileScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View className="mb-4 flex-row items-center">
-              <View className="flex-1 h-0.5" style={{ backgroundColor: borderColor }} />
-              <Text className="px-2 text-sm" style={{ color: subTextColor }}>
-                {t('Or', 'O')}
-              </Text>
-              <View className="flex-1 h-0.5" style={{ backgroundColor: borderColor }} />
-            </View>
 
-            {/* Sign Up Link */}
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert(t('Sign Up', 'Sign Up'), t('Sign up feature coming soon.', 'Siguro na darating ang feature ng sign up.'));
-              }}
-              className="flex-row items-center justify-center"
-            >
-              <Text className="text-sm font-medium" style={{ color: colors.greenText }}>
-                {t("Don't have an account? Sign up", "Walang account? Mag-sign up")}
-              </Text>
-            </TouchableOpacity>
           </View>
           </View>
         </ScrollView>

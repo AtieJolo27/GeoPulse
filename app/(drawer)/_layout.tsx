@@ -1,3 +1,4 @@
+import { useTutorial } from '@/shared/appLib/TutorialContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Drawer, DrawerContentScrollView, DrawerItem, DrawerItemList } from 'expo-router/drawer';
 import { useApp } from '@/shared/appLib/AppContext';
@@ -6,6 +7,7 @@ import { useThemeColors } from '@/shared/appLib/useThemeColors';
 export default function DrawerLayout(){
     const { t, fontScale, user, logout, loading } = useApp();
     const colors = useThemeColors();
+    const { open: openTutorial } = useTutorial();
     return(
 
         <Drawer
@@ -19,6 +21,9 @@ export default function DrawerLayout(){
                     <Text style={{ color: colors.subText, marginTop: 6, fontSize: 13 * fontScale }}>{t('Your field, at a glance.', 'Ang iyong bukid sa isang tingin.')}</Text>
                 </View>
                 <DrawerItemList {...props} />
+                {user && <DrawerItem label={t('Tutorial', 'Tutorial')} labelStyle={{ fontSize: 15 * fontScale, fontWeight: '600' }} inactiveTintColor={colors.subText}
+                  icon={({ size }) => <Ionicons name="help-circle-outline" color={colors.subText} size={size} />}
+                  onPress={() => { props.navigation.closeDrawer(); openTutorial(); }} /> }
                 {user && (
                     <DrawerItem
                         label={t('Sign Out', 'Mag-log out')}

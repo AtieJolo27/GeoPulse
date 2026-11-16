@@ -29,3 +29,19 @@ export async function getSoilHistory(limit = 30, zoneId?: number | null, throwOn
   }
   return (data ?? []).reverse();
 }
+
+/** All readings in a date window, paged to avoid truncating daily averages. */
+export async function getSoilHistorySince(since: string, zoneId?: number | null): Promise<SoilHistoryRow[]> {
+  if (zoneId == null) return [];
+  const rows: SoilHistoryRow[] = [];
+  const until = new Date().toISOString();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from('sensor_readings')
+      .select('id, created_at, nitrogen, phosphorus, potassium, ph, air_temperature, soil_temperature, humidity, soil_moisture')
+      .eq('zone_id', zoneId).gte('created_at', since).lte('created_at', until)
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 999);
+    if (error) throw new Error(`Unable to load daily history: ${error.message}`);
+    rows.push(...(data ?? []));
+    if (!data || data.length < 1000) return rows;
+  }
+}

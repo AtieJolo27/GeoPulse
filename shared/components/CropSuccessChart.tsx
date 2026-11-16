@@ -1,3 +1,4 @@
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { useApp } from '@/shared/appLib/AppContext';
 import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { supabase } from '@/lib/supabaseClient';
@@ -55,7 +56,7 @@ function ZoneSuccess({ zoneId, crop }: { zoneId: number; crop: string }) {
     <Text style={{ color: colors.subText, fontSize: 13 * fontScale, lineHeight: 20 * fontScale }}>{t('Success rate = completed cycles with a usable harvest ÷ all recorded completed cycles × 100. Results are farmer-reported for this zone, not predictions. Small samples may be misleading.', 'Success rate = natapos na pagtatanim na may napakinabangang ani ÷ lahat ng naitalang natapos na pagtatanim × 100. Iniulat ng magsasaka para sa sonang ito; hindi hula. Maaaring mapanlinlang ang kaunting datos.')}</Text>
     {loading ? <Text style={{ color: colors.subText }}>{t('Loading results...', 'Naglo-load ng resulta...')}</Text> : error ? <>
       <Text accessibilityRole="alert" style={{ color: colors.subText }}>{t('Unable to load harvest results. Check your connection and make sure the crop outcomes database migration has been applied.', 'Hindi makuha ang resulta ng ani. Suriin ang koneksyon at tiyaking nailapat ang crop outcomes migration sa database.')}</Text>
-      <TouchableOpacity accessibilityRole="button" onPress={() => { void load(); }}><Text style={{ color: colors.greenText }}>{t('Retry', 'Subukan muli')}</Text></TouchableOpacity>
+      <RefreshButton retry loading={loading} onPress={() => { void load(); }} accessibilityLabel={t('Refresh harvest results', 'I-refresh ang resulta ng ani')} />
     </> : groups.size === 0 ? <Text style={{ color: colors.subText }}>{t('No completed cycles recorded for this zone. Record a harvest result to start the graph.', 'Wala pang naitalang natapos na pagtatanim sa sonang ito. Magtala ng resulta ng ani para simulan ang graph.')}</Text> : [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([name, group]) => {
       const rate = group.success / group.total * 100;
       return <View key={name} accessible accessibilityLabel={`${name}: ${rate.toFixed(1)}%, ${group.success}/${group.total}`}>

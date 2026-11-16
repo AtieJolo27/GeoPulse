@@ -1,3 +1,5 @@
+import { TutorialTarget } from '@/shared/appLib/TutorialContext';
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { getSoilTypeRanges } from '@/lib/soilTypeRanges';
 import { useApp } from '@/shared/appLib/AppContext';
 import { useThemeColors } from '@/shared/appLib/useThemeColors';
@@ -5,7 +7,7 @@ import { getApiUrl } from '@/lib/apiConfig';
 import { SENSOR_REFERENCE_RANGES, parseSensorNumber } from '@/lib/soilHealthScore';
 import { supabase } from '@/lib/supabaseClient';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import FertilizerAdviceCard from './FertilizerAdviceCard';
 import { FertilizerAdvice, parseFertilizerAdvice } from '@/lib/fertilizerAdvice';
 
@@ -52,9 +54,12 @@ export default function GroqFertilizerRecommendations({ zoneId, crop }: { zoneId
     return () => { active = false; controller.abort(); clearTimeout(timeout); void supabase.removeChannel(channel); };
   }, [zoneId, crop, soilType, language, attempt]);
   return <View style={{ gap: 16 }}>
-    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 * fontScale }}>{crop ? `${t('Planted crop', 'Itinanim na pananim')}: ${crop.replace(/_/g, ' ')}` : t('No crop planted: soil nutrient targets', 'Walang pananim: batayang sustansiya ng lupa')}</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <Text accessibilityRole="header" style={{ flexShrink: 1, color: colors.text, fontWeight: '700', fontSize: 16 * fontScale }}>{t('Suggestions', 'Mga mungkahi')}</Text>
+      <TutorialTarget id="fertilizer-refresh"><RefreshButton loading={state.loading} retry={!!state.error} accessibilityLabel={t('Refresh fertilizer advice', 'I-refresh ang payo sa pataba')} onPress={() => { setNewReading(false); setAttempt(value => value + 1); }} /></TutorialTarget>
+    </View>
+    <Text style={{ color: colors.subText }}>{crop ? `${t('Planted crop', 'Itinanim na pananim')}: ${crop.replace(/_/g, ' ')}` : t('No crop planted: soil nutrient targets', 'Walang pananim: batayang sustansiya ng lupa')}</Text>
     {newReading && <Text style={{ color: colors.subText }}>{t('New readings available. Refresh to update advice.', 'May bagong datos. I-refresh para i-update ang payo.')}</Text>}
-    <TouchableOpacity accessibilityRole="button" disabled={state.loading} onPress={() => { setNewReading(false); setAttempt(value => value + 1); }} style={{ padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12 }}><Text style={{ color: colors.greenText }}>{t('Refresh fertilizer advice', 'I-refresh ang payo sa pataba')}</Text></TouchableOpacity>
     {state.loading ? <ActivityIndicator color={colors.primary} /> : state.error ? <Text accessibilityRole="alert" style={{ color: colors.subText }}>{state.error}</Text> : <>
       <Text style={{ color: colors.subText }}>{t('Source reading', 'Pinagmulang datos')}: {state.date ? new Date(state.date).toLocaleString() : '--'}</Text>
       {state.nutrients?.map(item => <Text key={item.key} style={{ color: colors.text, textTransform: 'capitalize' }}>{item.key}: {item.value} ppm</Text>)}

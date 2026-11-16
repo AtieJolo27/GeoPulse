@@ -37,7 +37,8 @@ def send_push(token, title, body, data):
         headers['Authorization'] = f'Bearer {access_token}'
     request = Request('https://exp.host/--/api/v2/push/send', headers=headers,
                       data=json.dumps({'to': token, 'title': title, 'body': body,
-                                       'sound': 'default', 'channelId': 'farm-alerts', 'data': data}).encode())
+                                       'sound': 'default', 'channelId': 'farm-alerts',
+                                       'color': '#28784A', 'data': data}).encode())
     with urlopen(request, timeout=20) as response:
         ticket = json.load(response)['data']
     if ticket.get('status') != 'ok':
@@ -74,9 +75,13 @@ def run(db, now=None):
             # Old crop cycles must not trigger reminders after replanting.
             if event['user_id'] != device['user_id'] or not zone or zone['current_crop'] != event['crop'] or zone.get('planted_on') != event['planted_on']:
                 continue
-            title = ('Araw ng ani' if tl else 'Harvest reminder') if event['kind'] == 'harvest' else ('Paalala sa pataba' if tl else 'Fertilizer reminder')
-            body = f"{zone.get('name_tl' if tl else 'name_en') or zone['id']} · {event['crop']} · {event['event_date']}. "
-            body += ('Suriin ang pananim bago kumilos.' if tl else 'Check crop readiness and field conditions before acting.')
+            zone_name = zone.get('name_tl' if tl else 'name_en') or f"Zone {zone['id']}"
+            reminder = ('Paalala sa ani' if tl else 'Harvest reminder') if event['kind'] == 'harvest' else ('Paalala sa pataba' if tl else 'Fertilizer reminder')
+            title = f"{zone_name} - {reminder}"
+            crop = event['crop'].replace('_', ' ').capitalize()
+            due = datetime.fromisoformat(event['event_date']).strftime('%b %d').replace(' 0', ' ')
+            body = f"{crop} / {due}. "
+            body += ('Suriin muna ang pananim at lupa.' if tl else 'Check your crop and soil before acting.')
             deliver(db, device, f"event:{event['id']}:{event['notify_at']}:{device['token']}", title, body, {'screen': 'calendar', 'zone_id': zone['id']})
     for subscription in subscriptions:
         zone = zones.get(subscription['zone_id'])
@@ -90,9 +95,15 @@ def run(db, now=None):
             if device['user_id'] != subscription['user_id']:
                 continue
             tl = device['language'] == 'tagalog'
-            title = 'Alerto sa moisture' if tl else 'Soil moisture alert'
-            body = f"{zone.get('name_tl' if tl else 'name_en') or zone['id']}: {readings[0]['soil_moisture']}% VWC ({condition}). "
-            body += 'Suriin ang lupa at drainage.' if tl else 'Check soil and drainage before adjusting irrigation.'
+            zone_name = zone.get('name_tl' if tl else 'name_en') or f"Zone {zone['id']}"
+            label = ('Mababang moisture' if condition == 'low' else 'Mataas na moisture') if tl else ('Low soil moisture' if condition == 'low' else 'High soil moisture')
+            title = f"{zone_name} - {label}"
+            value = float(readings[0]['soil_moisture'])
+            body = (f"Moisture ng lupa: {value:g}%. " if tl else f"Soil moisture: {value:g}%. ")
+            if condition == 'low':
+                body += 'Suriin ang lupa bago magdilig.' if tl else 'Check the soil before watering.'
+            else:
+                body += 'Suriin ang drainage bago magdilig.' if tl else 'Check drainage before watering again.'
             # At most one alert for each condition per zone/device/hour.
             key = f"moisture:{zone['id']}:{condition}:{now.strftime('%Y-%m-%dT%H')}:{device['token']}"
             deliver(db, device, key, title, body, {'screen': 'notifications', 'zone_id': zone['id']})

@@ -1,3 +1,4 @@
+import { TutorialTarget } from '@/shared/appLib/TutorialContext';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
@@ -11,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 function TipCards({ text }: { text: string }) {
   const { t, fontScale } = useApp();
   const colors = useThemeColors();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   // Support both numbered/bulleted responses already cached and plain paragraphs.
@@ -39,7 +40,7 @@ function TipCards({ text }: { text: string }) {
       onMomentumScrollEnd={event => setPage(Math.max(0, Math.min(tips.length - 1, Math.round(event.nativeEvent.contentOffset.x / width))))}
     >
       {tips.map((tip, index) => <View key={index} style={{ width, paddingHorizontal: 2 }}>
-        <View style={{ flex: 1, padding: 16, borderRadius: 14, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.cardBorder, borderLeftWidth: 4, borderLeftColor: colors.primary }}>
+        <View style={{ flex: 1, padding: 16, borderRadius: 14, backgroundColor: colors.cardBgAlt }}>
           <Text style={{ color: colors.greenText, fontWeight: '700', fontSize: 12 * fontScale, marginBottom: 8 }}>{t('Tip', 'Payo')} {index + 1} / {tips.length}</Text>
           <Text style={{ color: colors.text, fontSize: 14 * fontScale, lineHeight: 21 * fontScale }}>{tip}</Text>
         </View>
@@ -121,7 +122,8 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
     return () => { active = false; controller.abort(); clearTimeout(timeout); };
   }, [key, attempt, crop, soilType, plantedOn, age, today, language]);
 
-  return <View style={{ marginTop: 16, padding: 16, borderRadius: 16, backgroundColor: colors.cardBgAlt, borderWidth: 1, borderColor: colors.border }}>
+  return <View style={{ padding: 18, borderRadius: 20, backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.border }}>
+    <TutorialTarget id="crop-tips">
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.progressTrack, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="leaf-outline" size={19} color={colors.greenText} />
@@ -131,6 +133,7 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
         <Text style={{ fontSize: 12 * fontScale, color: colors.subText, marginTop: 3, textTransform: 'capitalize' }}>{crop.replace(/_/g, ' ')}</Text>
       </View>
     </View>
+    </TutorialTarget>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
       {[today, ...(age !== null ? [`${age} ${t('days since planting', 'araw mula sa pagtatanim')}`] : [])].map(label =>
         <View key={label} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.progressTrack }}>
@@ -158,7 +161,7 @@ export default function DailyCropTips({ zoneId, crop, plantedOn, soilType }: {
       {current.detail && <Text selectable style={{ color: colors.subText, marginTop: 6, fontSize: 12 * fontScale }}>{current.detail}</Text>}
       <TouchableOpacity accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => { setResult(null); setAttempt(value => value + 1); }}><Text style={{ color: colors.primary }}>{t('Retry', 'Subukan muli')}</Text></TouchableOpacity>
     </View> : <TipCards key={key} text={current.text ?? ''} />}
-    <View style={{ marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+    <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
       <Ionicons name="information-circle-outline" size={15} color={colors.mutedText} />
       <Text style={{ flex: 1, fontSize: 11 * fontScale, lineHeight: 16 * fontScale, color: colors.mutedText }}>{t('AI suggestions. Check actual field conditions before acting.', 'Payo ng AI. Suriin muna ang aktuwal na kondisyon sa bukid.')}</Text>
     </View>

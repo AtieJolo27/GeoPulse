@@ -56,7 +56,7 @@
       "expo-sharing",
       "expo-image",
       "expo-status-bar",
-      "expo-notifications"
+      ["expo-notifications", { "icon": "./assets/images/notification-icon.png", "color": "#28784A", "defaultChannel": "farm-alerts" }]
     ],
     "experiments": {
       "typedRoutes": true,

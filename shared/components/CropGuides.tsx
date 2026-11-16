@@ -1,3 +1,4 @@
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { useApp } from '@/shared/appLib/AppContext';
 import SensorManual from '@/shared/components/SensorManual';
 import { getCropImage } from '@/shared/appLib/cropImages';
@@ -253,7 +254,7 @@ export default function CropGuides() {
           <Ionicons name={loadError ? 'cloud-offline-outline' : 'search-outline'} size={32} color={colors.subText} />
           <Text style={{ color: colors.text, fontSize: fs(16), fontWeight: '600', textAlign: 'center', marginTop: 12 }}>{loadError ? t('Unable to load guides', 'Hindi ma-load ang mga gabay') : t('No crops found', 'Walang nahanap na pananim')}</Text>
           <Text style={{ color: colors.subText, fontSize: fs(14), textAlign: 'center', marginTop: 8 }}>{loadError ? t('Try loading the guides again.', 'Subukang i-load muli ang mga gabay.') : t('Try another crop name or clear your search.', 'Subukan ang ibang pangalan o burahin ang paghahanap.')}</Text>
-          <TouchableOpacity onPress={() => { if (loadError) { setLoading(true); setLoadError(false); void loadLocalCSV(); } else { setQuery(''); } }} style={{ backgroundColor: colors.headerBg, padding: 14, borderRadius: 12, marginTop: 16 }}><Text style={{ color: '#FFFFFF', fontSize: fs(14) }}>{loadError ? t('Retry', 'Subukan muli') : t('Clear search', 'Burahin ang paghahanap')}</Text></TouchableOpacity>
+          <View style={{ marginTop: 16 }}>{loadError ? <RefreshButton retry onPress={() => { setLoading(true); setLoadError(false); void loadLocalCSV(); }} accessibilityLabel={t('Reload crop guides', 'I-load muli ang mga gabay')} /> : <TouchableOpacity onPress={() => setQuery('')} accessibilityRole="button" style={{ backgroundColor: colors.headerBg, padding: 14, borderRadius: 12 }}><Text style={{ color: '#FFFFFF', fontSize: fs(14) }}>{t('Clear search', 'Burahin ang paghahanap')}</Text></TouchableOpacity>}</View>
         </View>}
 
       />

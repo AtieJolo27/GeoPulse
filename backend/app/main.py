@@ -183,6 +183,24 @@ def create_zone(zone: ZoneInput):
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unable to create zone") from exc
 
+@app.patch("/zones/{zone_id}")
+def update_zone(zone_id: int, zone: ZoneInput):
+    values = {"name_en": zone.name_en.strip(), "name_tl": zone.name_tl.strip(), "soil_type": zone.soil_type.strip()}
+    if not all(values.values()):
+        raise HTTPException(status_code=422, detail="Zone name and soil type are required")
+    values["name"] = values["name_en"]
+    try:
+        response = (supabase.table("zones").update(values)
+                    .eq("id", zone_id).eq("farm_id", get_default_farm_id()).execute())
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Zone not found")
+        return {"status": "success", "zone": response.data[0]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to update zone") from exc
+
+
 @app.post("/sensor")
 def create_sensor():
     sensor = generate_sensor_data()

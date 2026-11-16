@@ -1,9 +1,10 @@
+import { TutorialTarget, TutorialScrollView } from '@/shared/appLib/TutorialContext';
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { DashboardSkeleton } from '@/shared/components/LoadingSkeleton';
 import { SectionHeader } from '@/shared/components/ui/SectionHeader';
 import { StatusBadge } from '@/shared/components/ui/StatusBadge';
 import { useApp } from '@/shared/appLib/AppContext';
 import { useThemeColors } from '@/shared/appLib/useThemeColors';
-import DailyCropTips from '@/components/DailyCropTips';
 import DashboardLoadingIndicator from '@/components/DashboardLoadingIndicator';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
 import { exportDashboardReport } from '@/lib/exportDashboardReport';
@@ -11,9 +12,13 @@ import { validPlantingDate } from '@/lib/plantingDate';
 import { computeSoilHealthScore, SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';
 import { classifySoilValue, getSoilTypeRanges, SOIL_TYPE_OPTIONS, SoilBand, SoilLevel } from '@/lib/soilTypeRanges';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
+  AppState,
   Modal,
   RefreshControl,
   ScrollView,
@@ -112,6 +117,7 @@ export default function HomeScreen() {
     sensorZoneId,
     assignSensorToZone,
     createZone,
+    updateZone,
     setPlantedCrop,
   } = useApp();
   const colors = useThemeColors();
@@ -124,6 +130,14 @@ export default function HomeScreen() {
   const [fetchingReadings, setFetchingReadings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [holdProgress] = useState(() => new Animated.Value(0));
+  const [holdingZoneId, setHoldingZoneId] = useState<number | null>(null);
+  const resetZoneHold = () => {
+    holdProgress.stopAnimation();
+    holdProgress.setValue(0);
+    setHoldingZoneId(null);
+  };
+  const [editingZoneId, setEditingZoneId] = useState<number | null>(null);
   const [newZoneNameEn, setNewZoneNameEn] = useState('');
   const [newZoneNameTl, setNewZoneNameTl] = useState('');
   const [addZoneModalVisible, setAddZoneModalVisible] = useState(false);
@@ -149,8 +163,13 @@ export default function HomeScreen() {
   const [assigningSensor, setAssigningSensor] = useState(false);
   const [sensorMoveError, setSensorMoveError] = useState<string | null>(null);
   const readingRequest = useRef(0);
+  const readingController = useRef<AbortController | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (background = false) => {
+    // Realtime and polling can arrive together. Keep one background read in flight.
+    if (background && readingController.current) return;
+    readingController.current?.abort();
+    readingController.current = null;
     const requestId = ++readingRequest.current;
     if (activeZoneId === null) {
       setFetchingReadings(false);
@@ -162,14 +181,15 @@ export default function HomeScreen() {
     const cacheKey = `${CACHE_KEYS.SENSOR_READINGS}:zone:${activeZoneId}`;
     setFetchingReadings(true);
     const controller = new AbortController();
+    readingController.current = controller;
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       setError(null);
 
-      const cached = await getCache<SensorReading[]>(cacheKey);
+      const cached = background ? null : await getCache<SensorReading[]>(cacheKey);
       if (requestId !== readingRequest.current) return;
       if (cached && cached.length > 0) {
-        setData(cached);
+        setData(previous => previous.some(row => String(row.zone_id) === String(activeZoneId)) ? previous : cached);
         setLoading(false);
       }
 
@@ -179,6 +199,7 @@ export default function HomeScreen() {
         .eq('zone_id', activeZoneId)
         .order('created_at', { ascending: false, nullsFirst: false })
         .order('id', { ascending: false })
+        .limit(1)
         .abortSignal(controller.signal);
 
       if (requestId !== readingRequest.current) return;
@@ -202,6 +223,7 @@ export default function HomeScreen() {
     } finally {
       clearTimeout(timeout);
       if (requestId === readingRequest.current) {
+        readingController.current = null;
         setFetchingReadings(false);
         setLoading(false);
         setRefreshing(false);
@@ -209,27 +231,31 @@ export default function HomeScreen() {
     }
   }, [activeZoneId]);
 
-  useEffect(() => {
-    // Fetch when the selected zone changes, as well as on realtime notifications.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData();
-
-    const channel = supabase
-      .channel('sensor_readings')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'sensor_readings' },
-        () => {
-          fetchData();
-        }
-      )
+  useFocusEffect(useCallback(() => {
+    const refresh = () => {
+      if (AppState.currentState === 'active' || AppState.currentState === null) void fetchData(true);
+    };
+    void fetchData();
+    const timer = setInterval(refresh, 5000);
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') refresh();
+    });
+    const channel = activeZoneId === null ? null : supabase
+      .channel(`dashboard-readings-${activeZoneId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'sensor_readings', filter: `zone_id=eq.${activeZoneId}`,
+      }, refresh)
       .subscribe();
 
     return () => {
+      clearInterval(timer);
+      listener.remove();
       readingRequest.current++;
-      supabase.removeChannel(channel);
+      readingController.current?.abort();
+      readingController.current = null;
+      if (channel) void supabase.removeChannel(channel);
     };
-  }, [fetchData]);
+  }, [fetchData, activeZoneId]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -292,7 +318,7 @@ export default function HomeScreen() {
 
 
   return (
-    <ScrollView
+    <TutorialScrollView
       className="flex-1 px-5 py-5"
       contentContainerStyle={{ paddingBottom: 100 }}
       style={{ backgroundColor: colors.bg }}
@@ -324,9 +350,7 @@ export default function HomeScreen() {
         {error && <View accessibilityRole="alert" style={{ padding: 14, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 12 }}>
           <Text style={{ color: colors.text }}>{t('Unable to refresh soil readings.', 'Hindi ma-refresh ang datos ng lupa.')}</Text>
           <Text style={{ color: colors.subText, marginTop: 6 }}>{error}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={() => { void fetchData(); }} style={{ paddingVertical: 12 }}>
-            <Text style={{ color: colors.primary, fontWeight: '700' }}>{t('Retry readings', 'Subukang muli ang datos')}</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 12 }}><RefreshButton retry loading={fetchingReadings} accessibilityLabel={t('Retry readings', 'Subukang muli ang datos')} onPress={() => { void fetchData(); }} /></View>
         </View>}
         {(zonesError || sensorZoneError) && (
           <View accessibilityRole="alert" style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 }}>
@@ -334,9 +358,7 @@ export default function HomeScreen() {
               {zonesError ? t('Unable to load field zones.', 'Hindi ma-load ang mga sona.') : t('Sensor assignment is unavailable. You can still select a zone to view saved readings.', 'Hindi makuha ang sona ng sensor. Maaari pa ring pumili ng sona para makita ang naka-save na datos.')}
             </Text>
             <Text style={{ color: colors.subText, marginTop: 6 }}>{zonesError || sensorZoneError}</Text>
-            <TouchableOpacity accessibilityRole="button" disabled={zonesLoading} onPress={() => { void retryZoneLoading(); }} style={{ paddingVertical: 12 }}>
-              <Text style={{ color: colors.primary, fontWeight: '700' }}>{zonesLoading ? t('Retrying...', 'Sinusubukang muli...') : t('Retry connection', 'Subukang kumonekta muli')}</Text>
-            </TouchableOpacity>
+            <View style={{ marginTop: 12 }}><RefreshButton retry loading={zonesLoading} accessibilityLabel={t('Retry connection', 'Subukang kumonekta muli')} onPress={() => { void retryZoneLoading(); }} /></View>
           </View>
         )}
         <Modal visible={sensorMoveVisible} transparent animationType="fade" onRequestClose={() => { if (!assigningSensor) setSensorMoveVisible(false); }}>
@@ -385,10 +407,30 @@ export default function HomeScreen() {
             {t('FIELD ZONES', 'SONA NG LARANGAN')}
           </Text>
         </View>
+        <Text style={{ color: colors.mutedText, fontSize: fs(11), marginTop: 5 }}>{t('Tap to select. Hold a zone to edit.', 'I-tap para pumili. Pindutin nang matagal para i-edit.')}</Text>
         <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 10, paddingVertical: 12 }}>
           {zones.map((zone) => (
+            <Animated.View key={zone.id} style={{ transform: [{ scale: holdingZoneId === zone.id ? holdProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) : 1 }] }}>
             <TouchableOpacity
-              key={zone.id}
+              activeOpacity={0.9}
+              onPressIn={() => {
+                holdProgress.stopAnimation();
+                holdProgress.setValue(0);
+                setHoldingZoneId(zone.id);
+                Animated.timing(holdProgress, { toValue: 1, duration: 500, easing: Easing.linear, useNativeDriver: true }).start();
+              }}
+              onPressOut={resetZoneHold}
+              delayLongPress={500}
+              onLongPress={() => {
+                resetZoneHold();
+                mediumHaptic();
+                setSensorMoveTapZoneId(null);
+                setEditingZoneId(zone.id);
+                setNewZoneNameEn(zone.name_en);
+                setNewZoneNameTl(zone.name_tl);
+                setSelectedSoilType(zone.soil_type);
+                setAddZoneModalVisible(true);
+              }}
               onPress={async () => {
                 lightHaptic();
                 if (zone.id !== sensorZoneId && sensorMoveTapZoneId === zone.id && activeZoneId === zone.id && !sensorZoneLoading && !sensorZoneError) {
@@ -448,11 +490,22 @@ export default function HomeScreen() {
                     ? t('Tap again to move here', 'Tap muli para ilipat')
                     : t('Move sensor', 'Ilipat ang sensor')}
               </Text>
+              <View style={{ marginTop: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <Ionicons name="create-outline" size={12} color={activeZoneId === zone.id ? 'white' : colors.mutedText} />
+                <Text style={{ fontSize: fs(10), color: activeZoneId === zone.id ? 'white' : colors.mutedText }}>
+                  {holdingZoneId === zone.id ? t('Keep holding...', 'Pindutin pa...') : t('Hold to edit', 'Hawakan para i-edit')}
+                </Text>
+              </View>
+              <View style={{ height: 3, marginTop: 6, borderRadius: 2, overflow: 'hidden', backgroundColor: activeZoneId === zone.id ? 'rgba(255,255,255,0.2)' : colors.border }}>
+                <Animated.View style={{ height: 3, borderRadius: 2, backgroundColor: activeZoneId === zone.id ? 'white' : colors.primary, opacity: holdingZoneId === zone.id ? 1 : 0, transform: [{ scaleX: holdingZoneId === zone.id ? holdProgress : 0 }] }} />
+              </View>
             </TouchableOpacity>
+            </Animated.View>
           ))}
           <TouchableOpacity
             onPress={() => {
               lightHaptic();
+              setEditingZoneId(null);
               setNewZoneNameEn('');
               setNewZoneNameTl('');
               setAddZoneModalVisible(true);
@@ -507,7 +560,7 @@ export default function HomeScreen() {
           }}
         >
           <View className="flex-row justify-between">
-            <TouchableOpacity
+            <TutorialTarget id="home-health-details"><TouchableOpacity
               onPress={() => {
                 mediumHaptic();
                 setModalVisibility(true);
@@ -516,7 +569,7 @@ export default function HomeScreen() {
               accessibilityLabel={t('View sensor index details', 'Tingnan ang detalye ng index')}
             >
               <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
-            </TouchableOpacity>
+            </TouchableOpacity></TutorialTarget>
 
             <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: colors.cardBgAlt }}>
               <Text className="text-xs font-bold" style={{ color: colors.primary }}>
@@ -529,7 +582,7 @@ export default function HomeScreen() {
             <View onLayout={({ nativeEvent }) => setScoreCardWidth(nativeEvent.layout.width)}>
               <View style={{ width: '100%', alignItems: 'center' }}>
                 <View style={{ width: '100%', alignItems: 'center' }}>
-                  <AnimatedCircularProgress
+                  <TutorialTarget id="home-health"><AnimatedCircularProgress
                     size={scoreVisualSize}
                     width={10}
                     fill={healthInfo.score}
@@ -552,7 +605,7 @@ export default function HomeScreen() {
                         </Text>
                       </View>
                     )}
-                  </AnimatedCircularProgress>
+                  </AnimatedCircularProgress></TutorialTarget>
                   <Text style={{ marginTop: 12, fontSize: fs(13), fontWeight: '700', color: colors.subText, textAlign: 'center' }}>
                     {t('Soil Condition', 'Kondisyon ng Lupa')}
                   </Text>
@@ -864,8 +917,8 @@ export default function HomeScreen() {
 
         {/* Live Sensor Readings */}
         <View className="mt-6 flex-row items-end justify-between">
-          <View className="flex-1"><SectionHeader title={t('Soil conditions', 'Kondisyon ng lupa')} subtitle={soilRanges ? `${zoneObj?.soil_type} - ${t('soil reference ranges', 'batayang saklaw ng lupa')}` : t('No soil-specific ranges available; showing provisional defaults.', 'Walang saklaw para sa uri ng lupa; pansamantalang default ang gamit.')} /></View>
-          <TouchableOpacity
+          <View className="flex-1"><TutorialTarget id="home-parameters"><SectionHeader title={t('Soil conditions', 'Kondisyon ng lupa')} subtitle={soilRanges ? `${zoneObj?.soil_type} - ${t('soil reference ranges', 'batayang saklaw ng lupa')}` : t('No soil-specific ranges available; showing provisional defaults.', 'Walang saklaw para sa uri ng lupa; pansamantalang default ang gamit.')} /></TutorialTarget></View>
+          <TutorialTarget id="home-export"><TouchableOpacity
             onPress={handleExport}
             disabled={isExporting || activeZoneId === null}
             accessibilityRole="button"
@@ -878,7 +931,7 @@ export default function HomeScreen() {
             <Text className="ml-1 font-bold" style={{ color: colors.primaryDark }}>
               {isExporting ? t('Exporting...', 'Ini-export...') : t('Export PDF', 'I-export ang PDF')}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity></TutorialTarget>
         </View>
         <Text style={{ color: colors.mutedText, fontSize: fs(11), marginBottom: 10 }}>{t('Configured thresholds assume nitrate-N, Mehlich-3 phosphorus and calibrated VWC moisture. K bands use soil texture as a CEC proxy; CEC has not been measured.', 'Ang batayan ay para sa nitrate-N, Mehlich-3 phosphorus at calibrated VWC. Ginagamit ang uri ng lupa bilang batayan ng CEC; hindi pa nasusukat ang CEC.')}</Text>
         <View className="flex-row flex-wrap justify-between gap-y-3 py-2">
@@ -950,9 +1003,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {zoneObj?.current_crop && (
-          <DailyCropTips zoneId={zoneObj.id} crop={zoneObj.current_crop} plantedOn={zoneObj.planted_on} soilType={zoneObj.soil_type} />
-        )}
+
       </View>
 
       {/* Notifications are available from the header bell. */}
@@ -1136,7 +1187,7 @@ export default function HomeScreen() {
                   fontWeight: 'bold',
                 }}
               >
-                {t('Add New Zone', 'Magdagdag na Bagong Zona')}
+                {editingZoneId !== null ? t('Edit Zone', 'I-edit ang Sona') : t('Add New Zone', 'Magdagdag na Bagong Zona')}
               </Text>
             </View>
 
@@ -1234,6 +1285,12 @@ export default function HomeScreen() {
                 setSavingZone(true);
 
                 try {
+                  if (editingZoneId !== null) {
+                    await updateZone(editingZoneId, newZoneNameEn.trim(), newZoneNameTl.trim(), selectedSoilType);
+                    setAddZoneModalVisible(false);
+                    setEditingZoneId(null);
+                    return;
+                  }
                   const newZone = await createZone(
                     newZoneNameEn.trim(),
                     newZoneNameTl.trim(),
@@ -1254,6 +1311,8 @@ export default function HomeScreen() {
                   setNewZoneNameTl('');
                   setSelectedSoilType(null);
                   setAddZoneModalVisible(false);
+                } catch (error) {
+                  Alert.alert(t('Could not save zone', 'Hindi ma-save ang sona'), error instanceof Error ? error.message : 'Please try again.');
                 } finally {
                   setSavingZone(false);
                 }
@@ -1417,7 +1476,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-    </ScrollView>
+    </TutorialScrollView>
   );
 }
 

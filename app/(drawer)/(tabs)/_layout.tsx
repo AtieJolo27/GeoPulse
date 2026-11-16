@@ -1,3 +1,5 @@
+import { PlatformPressable } from 'expo-router/react-navigation';
+import { TutorialTarget } from '@/shared/appLib/TutorialContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +40,7 @@ export default function RootLayout() {
       <Tabs.Screen name='home'
       options={{
         title: "Home",
+        tabBarButton: props => <TutorialTarget id="home" persistent style={{ flex: 1 }}><PlatformPressable {...props} /></TutorialTarget>,
         tabBarIcon: ({color, size, focused}) =>
           <Ionicons name={focused ? 'home' : 'home-outline'} color={color} size={size} />
       }}
@@ -45,6 +48,7 @@ export default function RootLayout() {
       <Tabs.Screen name="crop"
         options={{
           title: "Crops",
+        tabBarButton: props => <TutorialTarget id="crop" persistent style={{ flex: 1 }}><PlatformPressable {...props} /></TutorialTarget>,
         tabBarIcon: ({color, size, focused}) =>
             <Ionicons name={focused ? 'leaf' : 'leaf-outline'} color={color} size={size} />
         }}
@@ -52,6 +56,7 @@ export default function RootLayout() {
       <Tabs.Screen name="fertilizer"
         options={{
           title: "Fertilizers",
+        tabBarButton: props => <TutorialTarget id="fertilizer" persistent style={{ flex: 1 }}><PlatformPressable {...props} /></TutorialTarget>,
         tabBarIcon: ({color, size, focused}) =>
             <Ionicons name={focused ? 'nutrition' : 'nutrition-outline'} color={color} size={size} />
         }}
@@ -59,6 +64,7 @@ export default function RootLayout() {
       <Tabs.Screen name="soil_moisture"
         options={{
           title: "Soil Moisture",
+        tabBarButton: props => <TutorialTarget id="soil_moisture" persistent style={{ flex: 1 }}><PlatformPressable {...props} /></TutorialTarget>,
         tabBarIcon: ({color, size, focused}) =>
             <Ionicons name={focused ? 'water' : 'water-outline'} color={color} size={size} />
         }}
@@ -66,6 +72,7 @@ export default function RootLayout() {
       <Tabs.Screen name="history"
         options={{
           title: "Manage",
+        tabBarButton: props => <TutorialTarget id="history" persistent style={{ flex: 1 }}><PlatformPressable {...props} /></TutorialTarget>,
         tabBarIcon: ({color, size, focused}) =>
             <Ionicons name={focused ? 'grid' : 'grid-outline'} color={color} size={size} />
         }}

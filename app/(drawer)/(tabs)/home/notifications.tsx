@@ -1,3 +1,4 @@
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import { useApp } from '@/shared/appLib/AppContext';
 import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
@@ -9,7 +10,7 @@ import type { SensorReading } from '@/lib/sensorAlerts';
 import { markNotificationsRead, sensorNotifications } from '@/lib/notificationReadState';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 
 export default function NotificationsScreen() {
   const { t, fontScale, zones, activeZoneId, zonesLoading, user } = useApp();
@@ -60,14 +61,14 @@ export default function NotificationsScreen() {
   const date = current?.reading?.created_at ? new Date(current.reading.created_at).toLocaleString() : '';
   return <>
     <Stack.Screen options={{ headerTitle: t('Notifications', 'Mga Notipikasyon') }} />
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 24, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} />}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 24, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary, colors.primaryLight]} />}>
       <Text style={{ color: colors.text, fontSize: 22 * fontScale, fontWeight: '800', marginBottom: 8 }}>{t('Notifications', 'Mga Notipikasyon')}</Text>
       <Text style={{ color: colors.subText, marginBottom: 20 }}>{zone ? t(zone.name_en, zone.name_tl) : t('Select a zone on the dashboard.', 'Pumili ng sona sa dashboard.')}</Text>
       {loading ? <View accessibilityLabel={t('Loading notifications', 'Kinukuha ang mga notipikasyon')} accessibilityState={{ busy: true }} style={{ gap: 12 }}>
         {[1, 2, 3].map(item => <LoadingSkeleton key={item} height={100} borderRadius={16} />)}
       </View> : current?.error ? <View>
         <Text accessibilityRole="alert" style={{ color: colors.subText }}>{current.error}</Text>
-        <TouchableOpacity onPress={refresh} accessibilityRole="button" style={{ paddingVertical: 16 }}><Text style={{ color: colors.greenText, fontWeight: '700' }}>{t('Retry', 'Subukan muli')}</Text></TouchableOpacity>
+        <View style={{ marginTop: 12 }}><RefreshButton retry onPress={refresh} loading={loading} accessibilityLabel={t('Refresh notifications', 'I-refresh ang mga notipikasyon')} /></View>
       </View> : !zone ? null : !current?.reading ? <Text style={{ color: colors.subText }}>{t('No sensor readings are linked to this zone yet.', 'Wala pang datos ng sensor sa sonang ito.')}</Text> : alerts.length === 0 ? <Text style={{ color: colors.subText }}>{t('No alerts. Available readings are within the alert thresholds.', 'Walang alerto. Nasa saklaw ng batayan ang mga available na datos.')}</Text> : alerts.map(alert => <UrgentCard key={alert.field} field={alert.field} message={alert.message} date={date} severity={alert.severity} />)}
     </ScrollView>
   </>;

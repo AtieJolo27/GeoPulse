@@ -1,3 +1,4 @@
+import { RefreshButton } from '@/shared/components/ui/RefreshButton';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useApp } from '@/shared/appLib/AppContext';
@@ -124,7 +125,7 @@ export default function SensorAttempts({ history = false, zoneId }: { history?: 
       <Text accessibilityRole="alert" style={{ color: colors.text, fontWeight: '700' }}>{t('We could not confirm the test status.', 'Hindi makumpirma ang kalagayan ng test.')}</Text>
       <Text style={{ color: colors.subText, marginTop: 6 }}>{t('Check your connection and refresh before continuing.', 'Suriin ang koneksyon at i-refresh bago magpatuloy.')}</Text>
       <Text style={{ color: colors.subText, marginTop: 6, fontSize: fs(12) }}>{error}</Text>
-      <Button secondary icon="refresh-outline" label={t('Refresh test status', 'I-refresh ang kalagayan')} onPress={() => { void load(); }} blocked={busy || loading} />
+      <View style={{ marginTop: 12 }}><RefreshButton retry loading={loading} disabled={busy} accessibilityLabel={t('Refresh test status', 'I-refresh ang kalagayan')} onPress={() => { void load(); }} /></View>
     </View>}
     {loading && !current && <Text style={{ color: colors.subText }}>{t('Loading attempts...', 'Nilo-load ang mga attempt...')}</Text>}
     {!history && current && <View style={{ marginTop: 18 }}>

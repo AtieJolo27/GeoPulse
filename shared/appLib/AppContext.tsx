@@ -46,6 +46,7 @@ interface AppContextType {
   sensorZoneId: number | null;
   assignSensorToZone: (zoneId: number) => Promise<void>;
   setActiveZoneId: (zoneId: number) => Promise<void>;
+  updateZone: (id: number, en: string, tl: string, soil: string) => Promise<void>;
   createZone: (nameEn: string, nameTl: string, soilType: string) => Promise<Zone | null>;
   setPlantedCrop: (zoneId: number, cropName: string, plantedOn: string) => Promise<boolean>;
   refreshZones: () => Promise<void>;
@@ -76,6 +77,7 @@ const AppContext = createContext<AppContextType>({
   sensorZoneId: null,
   assignSensorToZone: async () => { },
   setActiveZoneId: async () => { },
+  updateZone: async () => {},
   createZone: async () => null,
   setPlantedCrop: async () => false,
   refreshZones: async () => { },
@@ -214,6 +216,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSensorZoneError(null);
   }, [sensorZoneId]);
 
+  const updateZone = useCallback(async (id: number, en: string, tl: string, soil: string) => {
+    const json = await backendRequest(`/zones/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name_en: en, name_tl: tl, soil_type: soil }) });
+    if (!json.zone || json.zone.id !== id) throw new Error('Unable to save zone changes.');
+    setZones(previous => previous.map(zone => zone.id === id ? json.zone : zone));
+  }, []);
+
   const createZone = useCallback(async (nameEn: string, nameTl: string, soilType: string): Promise<Zone | null> => {
     try {
       const res = await fetch(`${API_BASE_URL}/zones`, {
@@ -324,6 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         assignSensorToZone,
         setActiveZoneId,
         createZone,
+        updateZone,
         setPlantedCrop,
         refreshZones,
       }}

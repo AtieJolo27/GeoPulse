@@ -1,3 +1,6 @@
+import { TutorialProvider } from '@/shared/appLib/TutorialContext';
+import { SensorConnectionProvider } from '@/shared/appLib/SensorConnectionContext';
+import './global.css';
 // app/_layout.tsx
 import { AppProvider, useApp } from '@/shared/appLib/AppContext';
 import PushNotificationBridge from '@/components/PushNotificationBridge';
@@ -66,7 +69,11 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AppProvider>
-      <RootLayoutNav />
+      <SensorConnectionProvider>
+        <TutorialProvider>
+          <RootLayoutNav />
+        </TutorialProvider>
+      </SensorConnectionProvider>
     </AppProvider>
   );
 }
