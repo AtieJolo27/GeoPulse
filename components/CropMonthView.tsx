@@ -1,5 +1,5 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import type { CropEvent } from '@/lib/cropCalendar';
 import { localDate } from '@/lib/plantingDate';
 import { Ionicons } from '@expo/vector-icons';

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import "../../global.css";
 
 export default function RootLayout() {
@@ -14,19 +14,22 @@ export default function RootLayout() {
       sceneStyle: { backgroundColor: colors.bg },
       tabBarHideOnKeyboard: true,
       tabBarStyle: {
-        backgroundColor: colors.headerBg,
-        height: 64 + insets.bottom,
-        paddingBottom: insets.bottom,
-        paddingTop: 7,
-        shadowColor: '#123E26',
+        backgroundColor: colors.cardBg,
+        height: 72 + insets.bottom,
+        paddingBottom: Math.max(insets.bottom, 8),
+        paddingTop: 10,
+        shadowColor: '#102D22',
         shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 10,
-        borderTopWidth: 0,
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 4,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
       },
-      tabBarActiveTintColor: '#FFFFFF',
-      tabBarInactiveTintColor: 'rgba(255,255,255,0.62)',
+      tabBarActiveTintColor: colors.greenText,
+      tabBarInactiveTintColor: colors.mutedText,
+      tabBarActiveBackgroundColor: colors.cardBgAlt,
+      tabBarItemStyle: { borderRadius: 16, marginHorizontal: 3 },
       tabBarLabelStyle: {
         fontSize: 11,
         fontWeight: '700',

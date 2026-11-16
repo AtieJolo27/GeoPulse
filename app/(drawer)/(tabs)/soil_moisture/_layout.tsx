@@ -1,5 +1,5 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
-import { TabScreenHeader } from '@/app/components/TabScreenHeader';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
+import { TabScreenHeader } from '@/shared/components/TabScreenHeader';
 import { Stack } from 'expo-router';
 
 

@@ -1,11 +1,12 @@
-import HistoryChart from '@/app/components/HistoryChart';
+import HistoryChart from '@/shared/components/HistoryChart';
 import CropCalendar from '@/components/CropCalendar';
 import SensorAttempts from '@/components/SensorAttempts';
-import CropSuccessChart from '@/app/components/CropSuccessChart';
-import { SectionHeader } from '@/app/components/ui/SectionHeader';
-import { useApp } from '@/app/lib/AppContext';
-import { exportSoilHistoryPDF } from '@/app/lib/exportSoilPDF';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import CropSuccessChart from '@/shared/components/CropSuccessChart';
+import { SectionHeader } from '@/shared/components/ui/SectionHeader';
+import { ScreenIntro } from '@/shared/components/ui/ScreenIntro';
+import { useApp } from '@/shared/appLib/AppContext';
+import { exportSoilHistoryPDF } from '@/shared/appLib/exportSoilPDF';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -25,6 +26,9 @@ export default function History() {
 
   return (
     <ScrollView className="flex-1 px-5 pt-5" style={{ backgroundColor: colors.bg }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 105 }}>
+      <ScreenIntro icon="grid-outline" eyebrow={t('FARM WORKSPACE', 'PAMAMAHALA NG BUKID')}
+        title={t('Plan. Measure. Grow.', 'Magplano. Sumukat. Magpalago.')}
+        description={t('Your calendar, sensor tests, and field records in one place.', 'Ang iyong kalendaryo, mga test, at tala ng bukid sa iisang lugar.')} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: 20 }} contentContainerStyle={{ gap: 8 }}>
         {([{ key: 'calendar', en: 'Calendar', tl: 'Kalendaryo', icon: 'calendar-outline' }, { key: 'attempts', en: 'Sensor tests', tl: 'Mga test', icon: 'pulse-outline' }, { key: 'history', en: 'History & reports', tl: 'Kasaysayan at report', icon: 'stats-chart-outline' }, { key: 'harvest', en: 'Harvest results', tl: 'Resulta ng ani', icon: 'leaf-outline' }] as const).map(item => <TouchableOpacity key={item.key} accessibilityRole="tab" accessibilityState={{ selected: category === item.key }} onPress={() => setCategory(item.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22, borderWidth: 1, borderColor: category === item.key ? colors.primary : colors.border, backgroundColor: category === item.key ? colors.primary : colors.cardBg }}><Ionicons name={item.icon} size={17} color={category === item.key ? '#FFFFFF' : colors.greenText} /><Text style={{ color: category === item.key ? '#FFFFFF' : colors.text, fontWeight: '700' }}>{t(item.en, item.tl)}</Text></TouchableOpacity>)}
       </ScrollView>

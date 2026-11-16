@@ -1,4 +1,4 @@
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import React from 'react';
 import { Text, TextProps } from 'react-native';
 

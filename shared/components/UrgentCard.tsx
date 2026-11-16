@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import React from 'react';
 import { Text, View } from 'react-native';
 

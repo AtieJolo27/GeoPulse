@@ -1,29 +1,16 @@
-import { useApp } from '@/app/lib/AppContext';
-import SensorManual from './SensorManual';
-import { getCropImage } from '@/app/lib/cropImages';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import SensorManual from '@/shared/components/SensorManual';
+import { getCropImage } from '@/shared/appLib/cropImages';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
 import * as Linking from 'expo-linking';
-import Papa from 'papaparse';
+import { parseCropGuides, type CSVRow } from '@/lib/cropGuideData';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { lightHaptic } from '../../lib/haptics';
-import "../global.css";
-
-// Interface matching the explicit CSV column names
-interface CSVRow {
-  crop_label?: string;
-  fertilizer_timing?: string;
-  fertilizer_method?: string;
-  watering_guide?: string;
-  guidance_source_title?: string;
-  guidance_source_url?: string;
-  pct_basis_phrase_from_watering_guide?: string;
-  soil_moisture_sensor_note?: string;
-  [key: string]: string | undefined;
-}
+import "@/app/global.css";
 
 function DropdownItem({
   item,
@@ -78,7 +65,7 @@ function DropdownItem({
         elevation: 2,
       }}
     >
-      {/* Header Bar — tap to toggle */}
+      {/* Header Bar â€” tap to toggle */}
       <TouchableOpacity
         className="flex-row items-center justify-between p-4"
         accessibilityRole="button"
@@ -202,7 +189,7 @@ export default function CropGuides() {
   const loadLocalCSV = useCallback(async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const asset = Asset.fromModule(require('../../backend/app/machine_learning/datasets/crop-guides.csv'));
+      const asset = Asset.fromModule(require('../../backend/app/machine_learning/datasets/crop_guide.csv'));
       await asset.downloadAsync();
 
       const fileUri = asset.localUri;
@@ -211,20 +198,8 @@ export default function CropGuides() {
       const file = new File(fileUri);
       const fileContent = await file.text();
 
-      Papa.parse(fileContent, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (response) => {
-          if (response.errors.length) throw new Error('Invalid crop guide data');
-          setCsvData((response.data as CSVRow[]).filter(item => item.crop_label?.trim()));
-          setLoading(false);
-        },
-        error: (error: any) => {
-          console.error('Parsing internal CSV error:', error.message);
-          setLoadError(true);
-          setLoading(false);
-        }
-      });
+      setCsvData(parseCropGuides(fileContent));
+      setLoading(false);
     } catch (error) {
       console.error('Error fetching internal file:', error);
       setLoadError(true);
@@ -255,8 +230,8 @@ export default function CropGuides() {
         keyExtractor={(item) => item.crop_label ?? ''}
         renderItem={({ item }) => <DropdownItem item={item} colors={colors} t={t} fs={fs} topic={topic} />}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        ListFooterComponent={<SensorManual />}
         ListHeaderComponent={<>
-          <SensorManual />
           <View style={{ padding: 20, borderRadius: 20, backgroundColor: colors.headerBg, marginBottom: 20 }}>
             <Ionicons name="leaf-outline" size={28} color="#FFFFFF" />
             <Text style={{ color: '#FFFFFF', fontSize: fs(22), fontWeight: '700', marginTop: 12 }}>{t('Grow with confidence', 'Gabay sa iyong pagsasaka')}</Text>

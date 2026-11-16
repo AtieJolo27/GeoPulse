@@ -1,4 +1,4 @@
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import { enablePushNotifications } from '@/lib/pushNotifications';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ export default function PushNotificationBridge() {
   const { user, language, setActiveZoneId, zones, zonesLoading, loading } = useApp();
   const router = useRouter();
   useEffect(() => {
-    if (!user || loading || zonesLoading || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return;
+    if (!user || loading || zonesLoading || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo') return;
     let disposed = false;
     let pending = false;
     const register = async () => {
@@ -26,7 +26,7 @@ export default function PushNotificationBridge() {
     return () => { disposed = true; listener.remove(); };
   }, [user, loading, zonesLoading, language, zones]);
   useEffect(() => {
-    if (!user || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return;
+    if (!user || Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo') return;
     let disposed = false;
     let remove = () => {};
     void (async () => {

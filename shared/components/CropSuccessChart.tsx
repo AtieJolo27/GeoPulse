@@ -1,5 +1,5 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { supabase } from '@/lib/supabaseClient';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Text, TouchableOpacity, View } from 'react-native';

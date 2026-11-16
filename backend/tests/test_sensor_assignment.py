@@ -1,5 +1,7 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
+from postgrest.exceptions import APIError
 from fastapi import HTTPException
 from app.services.sensor_assignment import get_sensor_zone, assign_sensor_zone, prepare_sensor_reading
 
@@ -76,3 +78,21 @@ class AssignmentTests(unittest.TestCase):
         db = Database()
         db.rows['farm_sensor_assignments'] = [{'farm_id': 8, 'zone_id': 27}]
         self.assertIsNone(get_sensor_zone(db, 8))
+
+
+class RelocationConflictTests(unittest.TestCase):
+    def test_active_attempt_relocation_is_a_conflict(self):
+        db = Database()
+        error = APIError({'code': 'P0001', 'message': 'Finish the active sensor attempt before relocating', 'details': None, 'hint': None})
+        with patch.object(Query, 'upsert', side_effect=error):
+            with self.assertRaises(HTTPException) as caught:
+                assign_sensor_zone(db, 8, 23)
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertIn('Finish the active soil test', caught.exception.detail)
+        self.assertEqual(db.rows['farm_sensor_assignments'], [])
+
+    def test_unrelated_database_failure_is_preserved(self):
+        error = APIError({'code': '42501', 'message': 'permission denied', 'details': None, 'hint': None})
+        with patch.object(Query, 'upsert', side_effect=error):
+            with self.assertRaises(APIError):
+                assign_sensor_zone(Database(), 8, 23)

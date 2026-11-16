@@ -1,8 +1,8 @@
-import { DashboardSkeleton } from '@/app/components/LoadingSkeleton';
-import { SectionHeader } from '@/app/components/ui/SectionHeader';
-import { StatusBadge } from '@/app/components/ui/StatusBadge';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { DashboardSkeleton } from '@/shared/components/LoadingSkeleton';
+import { SectionHeader } from '@/shared/components/ui/SectionHeader';
+import { StatusBadge } from '@/shared/components/ui/StatusBadge';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import DailyCropTips from '@/components/DailyCropTips';
 import DashboardLoadingIndicator from '@/components/DashboardLoadingIndicator';
 import PlantingDatePicker from '@/components/PlantingDatePicker';
@@ -17,7 +17,6 @@ import {
   Modal,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -28,7 +27,7 @@ import * as Progress from 'react-native-progress';
 import { CACHE_KEYS, getCache, setCache } from '../../../../lib/cache';
 import { lightHaptic, mediumHaptic, warningHaptic } from '../../../../lib/haptics';
 import { supabase } from '../../../../lib/supabaseClient';
-import Urgent_Card from '../../../components/UrgentCard';
+import Urgent_Card from '@/shared/components/UrgentCard';
 
 const DEFAULT_RANGES = {
   ...SENSOR_REFERENCE_RANGES,
@@ -294,7 +293,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      className="flex-1 px-7 py-5"
+      className="flex-1 px-5 py-5"
       contentContainerStyle={{ paddingBottom: 100 }}
       style={{ backgroundColor: colors.bg }}
       refreshControl={
@@ -307,12 +306,16 @@ export default function HomeScreen() {
       }
     >
       <View>
-        <View className="mb-6 mt-2">
-          <Text style={{ fontSize: fs(14), color: colors.subText }}>{t('Good day', 'Magandang araw')}</Text>
-          <Text style={{ fontSize: fs(26), fontWeight: '800', color: colors.text }}>
+        <View style={{ marginBottom: 24, padding: 24, borderRadius: 28, backgroundColor: colors.headerBg, overflow: 'hidden' }}>
+          <View pointerEvents="none" style={{ position: 'absolute', right: -30, top: -45, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.04)' }} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <Ionicons name="leaf-outline" size={16} color="#BFE2CB" />
+            <Text style={{ fontSize: fs(12), fontWeight: '700', letterSpacing: 1, color: '#BFE2CB' }}>{t('YOUR FIELD TODAY', 'ANG BUKID MO NGAYON')}</Text>
+          </View>
+          <Text style={{ fontSize: fs(28), lineHeight: fs(35), fontWeight: '800', letterSpacing: -0.8, color: '#FFFFFF' }}>
             {t('How is your field today?', 'Kumusta ang inyong bukid ngayon?')}
           </Text>
-          <Text className="mt-1" style={{ fontSize: fs(13), color: colors.mutedText }}>
+          <Text style={{ marginTop: 10, fontSize: fs(14), lineHeight: fs(21), color: '#CEE2D5' }}>
             {t('Live soil conditions and practical next steps.', 'Live na kondisyon ng lupa at praktikal na susunod na hakbang.')}
           </Text>
         </View>
@@ -382,7 +385,7 @@ export default function HomeScreen() {
             {t('FIELD ZONES', 'SONA NG LARANGAN')}
           </Text>
         </View>
-        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', justifyContent: 'space-between', gap: 2 }}>
+        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 10, paddingVertical: 12 }}>
           {zones.map((zone) => (
             <TouchableOpacity
               key={zone.id}
@@ -1449,19 +1452,20 @@ function SensorCard({
       className="mb-1 rounded-2xl border p-4"
       style={{
         width: '48.5%',
-        minHeight: 158,
+        minHeight: 180,
+        borderRadius: 22,
         backgroundColor: colors.sensorCardBg,
         borderColor: colors.sensorCardBorder,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.08,
-        shadowRadius: 3,
-        elevation: 2,
+        shadowColor: '#102D22',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 12,
+        elevation: 1,
       }}
       accessibilityRole="text"
       accessibilityLabel={`${label}: ${value}${nutrientStatus ? `, ${statusLabel}` : ''}, provisional reference: ${opt}`}
     >
-      <View className="flex flex-col items-center justify-center">
+      <View className="flex flex-col items-start justify-center">
         <View className="h-10 w-10 rounded-full items-center justify-center mb-2" style={{ backgroundColor: colors.cardBgAlt }}>
           <Ionicons name={icon} size={19} color={colors.primary} />
         </View>
@@ -1473,13 +1477,13 @@ function SensorCard({
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
-          style={{ fontSize: sf(21), fontWeight: 'bold', color: colors.text }}
+          style={{ fontSize: sf(27), letterSpacing: -0.7, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] }}
         >
           {value}
         </Text>
       </View>
       {nutrientStatus ? <View style={{ marginTop: 4, gap: 8 }}>
-        <View style={{ alignSelf: 'flex-start ', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: statusBg }}>
+        <View style={{ alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: statusBg }}>
           <Text style={{ fontSize: sf(13), fontWeight: '800', color: statusColor }}>{statusLabel}</Text>
         </View>
         <Text style={{ fontSize: sf(11), color: colors.subText }}>{t('Reference', 'Batayan')}: {opt}</Text>
@@ -1490,7 +1494,7 @@ function SensorCard({
           <Text style={{ fontSize: sf(11), fontWeight: '700', color: colors.greenText }}>Ideal: {opt}</Text>
           <Text style={{ fontSize: sf(10), fontWeight: '700', color: colors.subText }}>{Math.round(progress * 100)}%</Text>
         </View>
-        <Progress.Bar
+        <View style={{ marginTop: 8 }}><Progress.Bar
           progress={progress}
           height={7}
           color={colors.primary}
@@ -1498,11 +1502,8 @@ function SensorCard({
           borderWidth={0}
           width={null}
           borderRadius={4}
-          style={{ marginTop: 6 }}
-        />
+        /></View>
       </View>}
     </View>
   );
 }
-
-const styles = StyleSheet.create({});

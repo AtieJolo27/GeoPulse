@@ -1,6 +1,6 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
-import { getCropImage, getFertilizerImage } from '@/app/lib/cropImages';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
+import { getCropImage, getFertilizerImage } from '@/shared/appLib/cropImages';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
@@ -26,10 +26,10 @@ export default function RecommendationCard({ name, score, kind, rank, featured =
     : { pathname: '/(drawer)/(tabs)/fertilizer/reasoning' as const, params: { fertilizer: name, zoneId, readingId, plantedCrop } };
 
   return <Link href={href} asChild>
-    <TouchableOpacity accessibilityRole="button" activeOpacity={0.7} style={{ marginBottom: 12, padding: featured ? 20 : 16, borderRadius: 20, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.cardBg }}>
+    <TouchableOpacity accessibilityRole="button" activeOpacity={0.8} style={{ marginBottom: 14, padding: featured ? 24 : 18, borderRadius: 24, borderWidth: 1, borderColor: featured ? colors.border : colors.cardBorder, backgroundColor: colors.cardBg, shadowColor: '#102D22', shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, shadowOpacity: 0.04, elevation: 1 }}>
       {featured && <Text style={{ fontSize: fs(12), fontWeight: '700', color: colors.subText, marginBottom: 12 }}>{t('Highest-ranked model suggestion', 'Nangungunang mungkahi ng modelo')}</Text>}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Image source={kind === 'crop' ? getCropImage(name) : getFertilizerImage(name)} style={{ width: 48, height: 48, borderRadius: 24 }} />
+        <Image source={kind === 'crop' ? getCropImage(name) : getFertilizerImage(name)} style={{ width: featured ? 68 : 52, height: featured ? 68 : 52, borderRadius: 18, backgroundColor: colors.cardBgAlt }} />
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: fs(featured ? 22 : 16), fontWeight: '800', color: colors.text, textTransform: 'capitalize' }}>{name.replace(/_/g, ' ')}</Text>
           <Text style={{ marginTop: 6, fontSize: fs(12), color: colors.subText }}>{kind === 'crop' ? `Top ${rank ?? (featured ? 1 : 2)}` : `${t('Model score', 'Iskor ng modelo')}: ${scoreLabel}`}</Text>

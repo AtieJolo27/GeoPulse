@@ -1,4 +1,4 @@
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import { Redirect } from 'expo-router';
 
 export default function IndexScreen() {

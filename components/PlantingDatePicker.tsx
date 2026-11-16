@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { localDate } from '@/lib/plantingDate';
 
 export default function PlantingDatePicker({ value, onChange, future = false, label, markedDates = [] }: { value: string; onChange: (date: string) => void; future?: boolean; label?: string; markedDates?: string[] }) {

@@ -1,7 +1,7 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
-import { LoadingSkeleton } from '@/app/components/LoadingSkeleton';
-import UrgentCard from '@/app/components/UrgentCard';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import UrgentCard from '@/shared/components/UrgentCard';
 import { supabase } from '@/lib/supabaseClient';
 import { classifySoilValue, getSoilTypeRanges } from '@/lib/soilTypeRanges';
 import { SENSOR_REFERENCE_RANGES } from '@/lib/soilHealthScore';

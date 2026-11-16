@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 
 export type StatusTone = 'healthy' | 'warning' | 'critical' | 'neutral';
 
@@ -12,7 +13,14 @@ const tones: Record<StatusTone, { background: string; color: string; icon: React
 };
 
 export function StatusBadge({ label, tone = 'neutral' }: { label: string; tone?: StatusTone }) {
-  const style = tones[tone];
+  const colors = useThemeColors();
+  const darkTones: Record<StatusTone, { background: string; color: string }> = {
+    healthy: { background: '#203D30', color: '#A7E0BC' },
+    warning: { background: '#3D3320', color: '#F2D28C' },
+    critical: { background: '#412927', color: '#F5B5AE' },
+    neutral: { background: '#2A3833', color: '#C1D0C8' },
+  };
+  const style = { ...tones[tone], ...(colors.isDarkMode ? darkTones[tone] : {}) };
   return (
     <View
       accessibilityLabel={label}

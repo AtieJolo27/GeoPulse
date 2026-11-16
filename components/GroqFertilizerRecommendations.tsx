@@ -1,6 +1,6 @@
 import { getSoilTypeRanges } from '@/lib/soilTypeRanges';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { getApiUrl } from '@/lib/apiConfig';
 import { SENSOR_REFERENCE_RANGES, parseSensorNumber } from '@/lib/soilHealthScore';
 import { supabase } from '@/lib/supabaseClient';

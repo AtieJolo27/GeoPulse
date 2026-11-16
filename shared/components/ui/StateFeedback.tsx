@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 
 export function StateFeedback({ icon, title, message, action }: {
   icon: React.ComponentProps<typeof Ionicons>['name']; title: string; message: string; action?: React.ReactNode;

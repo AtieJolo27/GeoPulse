@@ -1,5 +1,5 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { getApiUrl } from '@/lib/apiConfig';
 import { CropEvent, parseCropSchedule, reminderTime, validCalendarDate } from '@/lib/cropCalendar';
 import { CalendarData, createCropEventStore, EventInput } from '@/lib/cropEventStore';

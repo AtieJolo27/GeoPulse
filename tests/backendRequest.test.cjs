@@ -100,3 +100,19 @@ test('successful assignment requests retain method and payload', async () => {
   });
   assert.equal((await request('/device/active-zone', { method: 'POST', body: '{"zone_id":23}' })).zone.id, 23);
 });
+
+
+test('relocation conflict surfaces the server explanation', async () => {
+  const request = load(async () => ({ ok: false, status: 409, json: async () => ({ detail: 'Finish the active soil test before moving the sensor.' }) }));
+  await assert.rejects(request('/device/active-zone', { method: 'POST' }), /Finish the active soil test/);
+});
+
+test('missing pause endpoint explains the outdated server', async () => {
+  const request = load(async () => ({ ok: false, status: 404, json: async () => ({ detail: 'Not Found' }) }));
+  await assert.rejects(request('/sensor-attempts/12/pause', { method: 'POST' }), /server needs an update/);
+});
+
+test('missing attempt preserves the specific server explanation', async () => {
+  const request = load(async () => ({ ok: false, status: 404, json: async () => ({ detail: 'Attempt not found' }) }));
+  await assert.rejects(request('/sensor-attempts/12/pause', { method: 'POST' }), /Attempt not found/);
+});

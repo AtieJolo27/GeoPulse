@@ -1,12 +1,12 @@
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerToggleButton } from 'expo-router/drawer';
 import { useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
-import { HeaderPopover } from './HeaderPopover';
-import { NotificationButton } from './NotificationButton';
-import SensorWifiScreen from './SensorWifiScreen';
-import { WeatherIndicator } from './WeatherIndicator';
+import { HeaderPopover } from '@/shared/components/HeaderPopover';
+import { NotificationButton } from '@/shared/components/NotificationButton';
+import SensorWifiScreen from '@/shared/components/SensorWifiScreen';
+import { WeatherIndicator } from '@/shared/components/WeatherIndicator';
 
 export function HeaderActions() {
   const { t } = useApp();

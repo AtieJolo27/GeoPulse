@@ -1,6 +1,6 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';

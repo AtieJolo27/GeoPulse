@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { LoadingSkeleton } from '@/app/components/LoadingSkeleton';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { LoadingSkeleton } from '@/shared/components/LoadingSkeleton';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { getApiUrl } from '@/lib/apiConfig';
 import { getCache, setCache } from '@/lib/cache';
 import { daysSincePlanting, localDate } from '@/lib/plantingDate';

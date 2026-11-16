@@ -25,8 +25,12 @@ Each zone has sequential attempt numbers. Only one attempt can be active per far
 Repeated Start while active returns the same attempt; repeated Finish returns the
 saved result. Relocation is rejected while testing is active. History shows the
 latest 20 attempts for the selected zone. The dashboard displays only its latest
-attempt. Use "View previous attempts" underneath it to open older completed
+attempt. Use "View saved tests" underneath it to open completed
 attempts for that zone, with timestamps, durations, sample counts and averages.
+The saved-test list includes the newest completed test. Test controls appear
+before current sensor readings, with placement and movement guidance. Finish
+opens an inline Save and end / Keep testing choice; saved averages are expandable
+and open automatically after saving. Background refreshes do not disable controls.
 While testing is active, an HH:MM:SS counter updates every second using the saved
 start timestamp, so elapsed time survives navigation and application restarts.
 

@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from postgrest.exceptions import APIError
 
 
 def get_sensor_zone(database, farm_id):
@@ -16,9 +17,14 @@ def assign_sensor_zone(database, farm_id, zone_id):
              .eq('id', zone_id).limit(1).execute()).data
     if not zones:
         raise HTTPException(status_code=404, detail='Zone not found in this farm')
-    database.table('farm_sensor_assignments').upsert({
-        'farm_id': farm_id, 'zone_id': zone_id,
-    }, on_conflict='farm_id').execute()
+    try:
+        database.table('farm_sensor_assignments').upsert({
+            'farm_id': farm_id, 'zone_id': zone_id,
+        }, on_conflict='farm_id').execute()
+    except APIError as exc:
+        if exc.code == 'P0001' and 'Finish the active sensor attempt before relocating' in exc.message:
+            raise HTTPException(status_code=409, detail='Finish the active soil test before moving the sensor to another zone.') from exc
+        raise
     return zones[0]
 
 

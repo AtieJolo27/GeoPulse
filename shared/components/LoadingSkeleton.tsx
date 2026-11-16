@@ -1,7 +1,7 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import React, { useEffect, useState } from 'react';
 import { Animated, ScrollView, View } from 'react-native';
-import { useApp } from '@/app/lib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 
 interface LoadingSkeletonProps {
   width?: number | string;

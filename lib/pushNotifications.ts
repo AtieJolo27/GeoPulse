@@ -9,7 +9,10 @@ export function pushAlertsDisabled(userId: string) {
 export async function enablePushNotifications(userId: string, language: string, zoneIds: number[], automatic = false) {
   if (automatic && pushAlertsDisabled(userId)) return;
   if (Platform.OS === 'web') throw new Error('Push alerts require the Android or iOS app on a physical device.');
-  if (Constants.executionEnvironment === 'storeClient') throw new Error('Install a development or production build to enable push notifications.');
+  if (Constants.executionEnvironment === 'storeClient' || Constants.appOwnership === 'expo') {
+    if (automatic) return;
+    throw new Error('Install a development or production build to enable push notifications.');
+  }
   const Notifications = await import('expo-notifications');
   if (Platform.OS === 'android') {
     try {
@@ -17,6 +20,7 @@ export async function enablePushNotifications(userId: string, language: string, 
         name: 'Farm alerts',
         description: 'Crop reminders and soil alerts',
         importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
         enableVibrate: true,
         lightColor: '#28784A',

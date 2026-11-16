@@ -1,5 +1,5 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import * as Linking from 'expo-linking';
 import { Alert, Text, TouchableOpacity, View } from 'react-native';
 

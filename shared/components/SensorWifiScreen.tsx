@@ -1,4 +1,4 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 /**
  * SensorWifiScreen.js
  *

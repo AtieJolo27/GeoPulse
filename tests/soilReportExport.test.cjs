@@ -32,7 +32,7 @@ test('soil history export queries newest zone sensor readings and surfaces datab
   const query = {};
   for (const method of ['select', 'eq', 'order']) query[method] = (...args) => { calls.push([method, ...args]); return query; };
   query.limit = async () => ({ data: null, error: { message: 'offline' } });
-  const api = moduleAt('app/lib/exportSoilPDF.ts', name => name.includes('supabase') ? { supabase: { from: table => { calls.push(['from', table]); return query; } } } : {});
+  const api = moduleAt('shared/appLib/exportSoilPDF.ts', name => name.includes('supabase') ? { supabase: { from: table => { calls.push(['from', table]); return query; } } } : {});
   await assert.rejects(api.exportSoilHistoryPDF(null), /Select a zone/);
   await assert.rejects(api.exportSoilHistoryPDF(18), /offline/);
   assert.ok(calls.some(c => c[0] === 'from' && c[1] === 'sensor_readings'));

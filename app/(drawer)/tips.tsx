@@ -1,10 +1,10 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Text, TouchableOpacity, View } from 'react-native';
-import CropGuides from '../components/CropGuides';
+import CropGuides from '@/shared/components/CropGuides';
 
 export default function TipsScreen() {
   const insets = useSafeAreaInsets();

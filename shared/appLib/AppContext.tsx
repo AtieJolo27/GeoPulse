@@ -85,7 +85,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
   const [language, setLanguageState] = useState<Language>('tagalog');
   const [user, setUser] = useState<User | null>(null);
-  // Start as true — we don't know auth state until getSession() resolves.
+  // Start as true â€” we don't know auth state until getSession() resolves.
   const [loading, setLoading] = useState<boolean>(true);
   const [fontSize, setFontSizeState] = useState<FontSize>('medium');
 
@@ -124,14 +124,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       });
       if (error) throw error;
       setUser(data.user);
-    } catch (error: any) {
-      console.error('Login error:', error);
-      throw error;
     } finally {
       setLoading(false);
     }

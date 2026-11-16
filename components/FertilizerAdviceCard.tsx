@@ -1,6 +1,6 @@
-import { useApp } from '@/app/lib/AppContext';
-import { getFertilizerImage } from '@/app/lib/cropImages';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { getFertilizerImage } from '@/shared/appLib/cropImages';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import type { FertilizerAdvice } from '@/lib/fertilizerAdvice';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';

@@ -1,9 +1,9 @@
-import { PrimaryButton } from '@/app/components/ui/PrimaryButton';
-import { SectionHeader } from '@/app/components/ui/SectionHeader';
-import { StateFeedback } from '@/app/components/ui/StateFeedback';
-import { StatusBadge, StatusTone } from '@/app/components/ui/StatusBadge';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { PrimaryButton } from '@/shared/components/ui/PrimaryButton';
+import { SectionHeader } from '@/shared/components/ui/SectionHeader';
+import { StateFeedback } from '@/shared/components/ui/StateFeedback';
+import { StatusBadge, StatusTone } from '@/shared/components/ui/StatusBadge';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';

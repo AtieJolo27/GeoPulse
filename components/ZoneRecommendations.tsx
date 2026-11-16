@@ -1,5 +1,6 @@
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { ScreenIntro } from '@/shared/components/ui/ScreenIntro';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { supabase } from '@/lib/supabaseClient';
 import { loadZoneRecommendations } from '@/lib/zoneRecommendations';
 import { useEffect, useState } from 'react';
@@ -21,13 +22,16 @@ type Result = {
 };
 
 export default function ZoneRecommendations({ kind }: { kind: 'crop' | 'fertilizer' }) {
-  const { zones, activeZoneId, t, fontScale } = useApp();
+  const { zones, activeZoneId, t } = useApp();
   const colors = useThemeColors();
   const zone = zones.find(item => item.id === activeZoneId);
   // Remount on zone/crop changes so previous results cannot appear under a new zone.
   return <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 20, paddingBottom: 110 }}>
-    <Text style={{ fontSize: 24 * fontScale, fontWeight: '800', color: colors.text }}>{kind === 'crop' ? t('Crop options to evaluate', 'Mga pananim na maaaring suriin') : t('Fertilizer options to review', 'Mga patabang maaaring suriin')}</Text>
-    {zone && <Text style={{ marginTop: 8, marginBottom: 16, fontSize: 14 * fontScale, color: colors.subText }}>{t(zone.name_en, zone.name_tl)}</Text>}
+    <ScreenIntro icon={kind === 'crop' ? 'leaf-outline' : 'nutrition-outline'}
+      eyebrow={kind === 'crop' ? t('CROP PLANNING', 'PAGPAPLANO NG PANANIM') : t('SOIL NUTRITION', 'NUTRISYON NG LUPA')}
+      title={kind === 'crop' ? t('Find your next crop', 'Piliin ang susunod na pananim') : t('Care for your soil', 'Alagaan ang iyong lupa')}
+      description={kind === 'crop' ? t('Explore crop options based on your soil readings.', 'Suriin ang mga pananim batay sa datos ng iyong lupa.') : t('Review nutrient needs and fertilizer guidance for your field.', 'Suriin ang sustansya at gabay sa pataba para sa iyong bukid.')} />
+    {zone && <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.cardBgAlt, borderRadius: 12, marginBottom: 20 }}><Ionicons name="location-outline" size={15} color={colors.greenText} /><Text style={{ fontWeight: '600', color: colors.greenText }}>{t(zone.name_en, zone.name_tl)}</Text></View>}
     {zone ? kind === 'fertilizer' ? <GroqFertilizerRecommendations key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} crop={zone.current_crop} /> : <ZoneResults key={`${zone.id}:${zone.current_crop}`} zoneId={zone.id} kind={kind} /> : <Text style={{ marginTop: 16, color: colors.subText }}>{t('Select a zone on the dashboard to see recommendations.', 'Pumili ng sona sa dashboard para makita ang mga mungkahi.')}</Text>}
   </ScrollView>;
 }

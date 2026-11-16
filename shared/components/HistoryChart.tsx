@@ -1,6 +1,6 @@
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useWindowDimensions, ScrollView, Text, TouchableOpacity, View } from 'react-native';

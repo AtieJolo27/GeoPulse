@@ -1,8 +1,8 @@
 import { getSoilHistory, SoilHistoryRow } from '@/lib/getHistory';
 import { computeSoilHealthScore } from '@/lib/soilHealthScore';
 import { getSoilTypeRanges } from '@/lib/soilTypeRanges';
-import { useApp } from '@/app/lib/AppContext';
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useApp } from '@/shared/appLib/AppContext';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';

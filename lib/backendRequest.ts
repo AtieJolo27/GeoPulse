@@ -15,6 +15,12 @@ export async function backendRequest(path: string, options: RequestInit = {}) {
       const response = await fetch(`${API_BASE_URL}${path}`, { ...options, signal: controller.signal });
       if (!response.ok) {
         retryable = [502, 503, 504].includes(response.status);
+        let detail: unknown;
+        try { detail = (await response.json()).detail; } catch { /* Non-JSON gateway response. */ }
+        if (response.status === 404 && /^\/sensor-attempts\/\d+\/(pause|resume)$/.test(path) && (!detail || detail === 'Not Found')) {
+          throw new Error('Pause and Resume are unavailable because the server needs an update. Contact your administrator.');
+        }
+        if (typeof detail === 'string' && detail !== 'Not Found') throw new Error(detail);
         throw new Error(`Server request failed (${response.status}). Please try again.`);
       }
       // Invalid JSON is a response/configuration error, not a connection failure.

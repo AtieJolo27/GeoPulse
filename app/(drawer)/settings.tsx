@@ -1,7 +1,7 @@
-import { useThemeColors } from '@/app/lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { FontSize } from '@/app/lib/AppContext';
-import { useApp } from '@/app/lib/AppContext';
+import type { FontSize } from '@/shared/appLib/AppContext';
+import { useApp } from '@/shared/appLib/AppContext';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -23,10 +23,10 @@ export default function SettingsScreen() {
   const { isDarkMode, toggleTheme, language, setLanguage, t, fontSize, setFontSize, fontScale } = useApp();
   const bgColor = colors.bg;
   const cardBg = colors.cardBg;
-  const textColor = isDarkMode ? '#F3F4F6' : '#1F2937';
+  const textColor = colors.text;
   const subTextColor = colors.subText;
-  const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
-  const headerBg = isDarkMode ? '#0F3D37' : '#184B44';
+  const borderColor = colors.border;
+  const headerBg = colors.headerBg;
   const fs = (size: number) => size * fontScale;
 
   const handleLanguageSelect = (lang: 'tagalog' | 'english') => {
@@ -48,7 +48,7 @@ export default function SettingsScreen() {
           backgroundColor: headerBg, paddingTop: insets.top + 12,
           shadowColor: '#0D5E33',
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
+          shadowOpacity: 0.06,
           shadowRadius: 8,
           elevation: 8,
         }}

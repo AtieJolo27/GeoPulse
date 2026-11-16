@@ -1,5 +1,5 @@
 // app/_layout.tsx
-import { AppProvider, useApp } from '@/app/lib/AppContext';
+import { AppProvider, useApp } from '@/shared/appLib/AppContext';
 import PushNotificationBridge from '@/components/PushNotificationBridge';
 import { Redirect, Stack } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
@@ -7,7 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useThemeColors } from './lib/useThemeColors';
+import { useThemeColors } from '@/shared/appLib/useThemeColors';
+
+export const unstable_settings = { anchor: 'index' };
 
 function RootLayoutNav() {
   const { user, loading } = useApp();
@@ -34,7 +36,7 @@ function RootLayoutNav() {
     <ThemeProvider value={theme}>
       <PushNotificationBridge />
       <StatusBar style={loading && !colors.isDarkMode ? 'dark' : 'light'} />
-      <Stack initialRouteName="index" screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(drawer)" />
       </Stack>
