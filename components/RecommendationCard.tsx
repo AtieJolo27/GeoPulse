@@ -32,8 +32,9 @@ export default function RecommendationCard({ name, score, kind, rank, featured =
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Image source={kind === 'crop' ? getCropImage(name) : getFertilizerImage(name)} style={{ width: kind === 'crop' ? 64 : featured ? 68 : 52, height: kind === 'crop' ? 64 : featured ? 68 : 52, borderRadius: 16, backgroundColor: colors.cardBgAlt }} />
         <View style={{ flex: 1 }}>
+          {kind === 'crop' && <Text style={{ fontSize: fs(12), fontWeight: '700', color: colors.greenText, marginBottom: 3 }}>{t('Rank', 'Ranggo')} {rank ?? (featured ? 1 : 2)}</Text>}
           <Text style={{ fontSize: fs(kind === 'crop' ? 19 : featured ? 22 : 16), fontWeight: '800', color: colors.text, textTransform: 'capitalize' }}>{name.replace(/_/g, ' ')}</Text>
-          <Text style={{ marginTop: 6, fontSize: fs(12), color: colors.subText }}>{kind === 'crop' ? `${t('Rank', 'Ranggo')} ${rank ?? (featured ? 1 : 2)} ? ${t('View crop details', 'Tingnan ang detalye')}` : `${t('Model score', 'Iskor ng modelo')}: ${scoreLabel}`}</Text>
+          <Text style={{ marginTop: 6, fontSize: fs(12), color: colors.subText }}>{kind === 'crop' ? t('View crop details', 'Tingnan ang detalye') : `${t('Model score', 'Iskor ng modelo')}: ${scoreLabel}`}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.mutedText} />
       </View>

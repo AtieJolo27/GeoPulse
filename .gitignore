@@ -49,3 +49,6 @@ app-example
 *-firebase-adminsdk-*.json
 
 /dist-android-check/
+
+# Unit test coverage output
+/coverage/
